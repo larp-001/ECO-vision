@@ -224,16 +224,16 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
               className={`btn-cyber ${isDarkMode100 ? 'btn-cyber-primary' : ''}`}
               style={{ fontSize: '0.75rem', padding: '4px 10px' }}
             >
-              {isDarkMode100 ? '🌙 100% DARK MODE: ON' : '💡 SIMULATE DARK WAREHOUSE'}
+              {isDarkMode100 ? 'DARK MODE: ON' : 'SIMULATE DARK WAREHOUSE'}
             </button>
 
             <button
               onClick={handleFlashOnScan}
               className="btn-cyber"
               style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-              title="Demonstrates 0.5s Flash LED activation only during scan"
+              title="Demonstrates Flash LED activation only during scan"
             >
-              ⚡ FLASH-ON-SCAN
+              FLASH-ON-SCAN
             </button>
           </div>
         </div>
@@ -253,7 +253,6 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
             style={{
               borderRadius: '50%',
               border: '2px solid rgba(0, 176, 255, 0.4)',
-              boxShadow: isDarkMode100 ? '0 0 40px rgba(0, 230, 118, 0.2)' : '0 0 30px rgba(0, 176, 255, 0.15)',
               cursor: 'crosshair'
             }}
           />
@@ -270,7 +269,7 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
             fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)'
           }}>
-            <div style={{ color: 'var(--tech-cyan)', fontWeight: 'bold' }}>📡 RADAR FREQ: 60-64 GHz</div>
+            <div style={{ color: 'var(--tech-cyan)', fontWeight: 'bold' }}>RADAR FREQ: 60-64 GHz</div>
             <div>BEAM RESOLUTION: 0.15m / 1.2°</div>
             <div>RADAR RANGE: {radarRangeM} METERS</div>
           </div>
@@ -295,7 +294,7 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
               className="btn-cyber"
               style={{ fontSize: '0.72rem', padding: '4px 8px' }}
             >
-              {showNLOSOnly ? '👁 SHOW ALL TARGETS' : '🛡 FILTER NLOS ONLY'}
+              {showNLOSOnly ? 'SHOW ALL TARGETS' : 'FILTER NLOS ONLY'}
             </button>
           </div>
         </div>
@@ -309,19 +308,19 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
           background: 'rgba(8, 14, 22, 0.7)',
           borderRadius: '8px',
           border: '1px solid var(--border-subtle)',
-          fontSize: '0.75rem'
+          fontSize: '0.74rem'
         }}>
           <div>
-            <div style={{ color: 'var(--danger-red)', fontWeight: 'bold' }}>● Red: NLOS Human</div>
-            <div style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>Penetrates shelf corners (3-5m)</div>
+            <span style={{ color: 'var(--tech-cyan)', fontWeight: 'bold' }}>1. 360° FMCW Radar:</span>
+            <div style={{ color: 'var(--text-muted)' }}>Immune to zero-lux total darkness</div>
           </div>
           <div>
-            <div style={{ color: 'var(--warning-amber)', fontWeight: 'bold' }}>● Amber: Spatial Anomaly</div>
-            <div style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>Fallen box / obstacle diff</div>
+            <span style={{ color: 'var(--tech-cyan)', fontWeight: 'bold' }}>2. NLOS Penetration:</span>
+            <div style={{ color: 'var(--text-muted)' }}>Tracks humans behind racks</div>
           </div>
           <div>
-            <div style={{ color: 'var(--eco-green)', fontWeight: 'bold' }}>● Green: Clear Safe Path</div>
-            <div style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>Zero-light navigation ready</div>
+            <span style={{ color: 'var(--tech-cyan)', fontWeight: 'bold' }}>3. Fallen Safety AI:</span>
+            <div style={{ color: 'var(--text-muted)' }}>Auto brakes on fallen obstacle</div>
           </div>
         </div>
       </div>
@@ -391,7 +390,7 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
                   color: '#f8d7da',
                   lineHeight: '1.4'
                 }}>
-                  🛡 <strong>NLOS Anti-Collision Activated:</strong> Human is moving behind Shelf A-03 blind spot. AMR vehicle speed reduced to <strong>0.3 m/s</strong> automatically.
+                  <strong>NLOS Anti-Collision Activated:</strong> Human is moving behind Shelf A-03 blind spot. AMR vehicle speed reduced to <strong>0.3 m/s</strong> automatically.
                 </div>
               )}
             </div>
@@ -444,13 +443,13 @@ export default function RadarMonitor({ onSimulateFallenItem, onTriggerSOS }) {
           <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
             <button
               onClick={() => {
-                alert('🚨 SOS LAB EMERGENCY ALERT TRIGGERED!\nRadar detected person fall/unresponsive state in Lab Zone B. Immediate supervisor notified with exact coordinates!');
+                alert('SOS LAB EMERGENCY ALERT TRIGGERED!\nRadar detected person fall/unresponsive state in Lab Zone B. Immediate supervisor notified with exact coordinates!');
                 if (onTriggerSOS) onTriggerSOS();
               }}
               className="btn-cyber btn-cyber-danger"
               style={{ width: '100%', justifyContent: 'center', fontSize: '0.82rem' }}
             >
-              🚨 SIMULATE LAB PERSONNEL FALL (SOS)
+              SIMULATE LAB PERSONNEL FALL
             </button>
           </div>
         </div>

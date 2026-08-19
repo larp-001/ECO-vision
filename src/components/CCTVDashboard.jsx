@@ -26,7 +26,7 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
     
     // Simulate robot dispatch for Point-to-Pick
     setTimeout(() => {
-      alert(`🎯 POINT-TO-PICK DISPATCHED!\nRobot arm locked onto target coordinates [X: ${x}, Y: ${y}]. Moving to pick location...`);
+      alert(`POINT-TO-PICK DISPATCHED!\nRobot arm locked onto target coordinates [X: ${x}, Y: ${y}]. Moving to pick location...`);
       setIsPointToPickActive(false);
       setTargetCoordinate(null);
       if (onTriggerPick) onTriggerPick({ x, y });
@@ -68,14 +68,14 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
                 className={`btn-cyber ${isPointToPickActive ? 'btn-cyber-primary' : ''}`}
                 style={{ fontSize: '0.78rem', padding: '4px 10px' }}
               >
-                {isPointToPickActive ? '🎯 TAP SCREEN TO PICK...' : '👆 ENABLE POINT-TO-PICK'}
+                {isPointToPickActive ? 'TAP SCREEN TO PICK...' : 'ENABLE POINT-TO-PICK'}
               </button>
               <button
                 onClick={() => setActiveDefectTest(!activeDefectTest)}
                 className="btn-cyber"
                 style={{ fontSize: '0.78rem', padding: '4px 10px', borderColor: 'var(--warning-amber)', color: 'var(--warning-amber)' }}
               >
-                {activeDefectTest ? '⚠️ DEFECT SIM: ON' : '🔍 TEST DEFECT AI'}
+                {activeDefectTest ? 'DEFECT SIM: ON' : 'TEST DEFECT AI'}
               </button>
             </div>
           </div>
@@ -142,10 +142,20 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
                       color: item.pass ? 'var(--eco-green)' : 'var(--danger-red)',
                       fontWeight: 'bold'
                     }}>
-                      {item.pass ? '✓ QC OK [99.8%]' : '⚠️ DEFECT DETECTED'}
+                      {item.pass ? '✓ QC OK [99.8%]' : 'DEFECT DETECTED'}
                     </span>
-                    <div style={{ fontSize: '1.4rem', textAlign: 'center' }}>
-                      {item.pass ? '🧪' : '💥'}
+                    <div style={{ textAlign: 'center', color: item.pass ? '#34d399' : '#ef4444', display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+                      {item.pass ? (
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 2v7.31L4.62 17.6A2 2 0 0 0 6.3 20.6h11.4a2 2 0 0 0 1.68-3L14 9.31V2"></path>
+                        </svg>
+                      ) : (
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="12"></line>
+                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                      )}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
                       {item.name}
@@ -272,7 +282,6 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
               alignItems: 'center',
               gap: '8px'
             }}>
-              <span>👆</span>
               <span><strong>Interactive AR Mode:</strong> Click any bottle, box, or shelf position on the video stream above to instantly dispatch the AMR to that coordinate!</span>
             </div>
           )}
@@ -434,7 +443,7 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
 
               {log.anomalyDetected && (
                 <div style={{ fontSize: '0.7rem', color: '#ff8a80', background: 'rgba(255,23,68,0.1)', padding: '3px 6px', borderRadius: '4px' }}>
-                  ⚠️ {log.defectReason}
+                  {log.defectReason}
                 </div>
               )}
             </div>

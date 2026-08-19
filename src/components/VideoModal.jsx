@@ -188,8 +188,18 @@ export default function VideoModal({ log, onClose }) {
                     {log.anomalyDetected ? 'DEFECT DETECTED [94%]' : 'AI_INSPECT: OK [99.8%]'}
                   </span>
                   
-                  <div style={{ textAlign: 'center', color: '#fff', fontSize: '1.8rem' }}>
-                    {log.anomalyDetected ? '⚠️' : '🧪'}
+                  <div style={{ textAlign: 'center', color: log.anomalyDetected ? '#ef4444' : '#34d399', display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+                    {log.anomalyDetected ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 2v7.31L4.62 17.6A2 2 0 0 0 6.3 20.6h11.4a2 2 0 0 0 1.68-3L14 9.31V2"></path>
+                      </svg>
+                    )}
                   </div>
 
                   <span style={{
@@ -295,7 +305,7 @@ export default function VideoModal({ log, onClose }) {
                     style={{ padding: '4px 10px', fontSize: '0.8rem' }}
                     onClick={() => setIsPlaying(!isPlaying)}
                   >
-                    {isPlaying ? '❚❚ PAUSE' : '▶ PLAY'}
+                    {isPlaying ? 'PAUSE' : 'PLAY'}
                   </button>
                   <button 
                     className="btn-cyber"
@@ -375,9 +385,9 @@ export default function VideoModal({ log, onClose }) {
                     padding: '10px',
                     borderRadius: '6px'
                   }}>
-                    <div style={{ color: 'var(--danger-red)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                      ⚠️ ANOMALY / DEFECT NOTE:
-                    </div>
+                    <span style={{ color: 'var(--danger-red)', fontWeight: 'bold', fontSize: '0.72rem' }}>
+                      ANOMALY / DEFECT NOTE:
+                    </span>
                     <div style={{ fontSize: '0.8rem', color: '#f8d7da', marginTop: '4px' }}>
                       {log.defectReason}
                     </div>
@@ -429,7 +439,7 @@ export default function VideoModal({ log, onClose }) {
                 style={{ flex: 1, justifyContent: 'center', fontSize: '0.85rem' }}
                 onClick={() => alert(`Clip ${log.id} exported as legal audit artifact (.mp4 + JSON metadata)`)}
               >
-                📥 EXPORT AUDIT SNIPPET
+                EXPORT AUDIT SNIPPET
               </button>
             </div>
           </div>

@@ -11,7 +11,7 @@ export default function AIAdvisory() {
       prev.map((p) => (p.id === proposalId ? { ...p, status: 'APPROVED' } : p))
     );
     setActiveProposal((prev) => ({ ...prev, status: 'APPROVED' }));
-    alert(`✅ PROPOSAL ${proposalId} APPROVED!\nHuman Supervisor authorized slotting optimization. Robot will execute during Off-Peak window (01:30 - 03:00 AM) with video-backed audit on every move.`);
+    alert(`PROPOSAL ${proposalId} APPROVED!\nHuman Supervisor authorized slotting optimization. Robot will execute during Off-Peak window.`);
   };
 
   const handleExecuteNow = () => {
@@ -22,7 +22,7 @@ export default function AIAdvisory() {
       );
       setActiveProposal((prev) => ({ ...prev, status: 'EXECUTED' }));
       setIsSimulatingExecution(false);
-      alert(`🎉 SLOTTING OPTIMIZATION COMPLETED!\n6 Fast-Moving SKUs relocated to Front Bay A. Video logs generated and WMS shelf coordinates updated.`);
+      alert(`SLOTTING OPTIMIZATION COMPLETED!\nFast-Moving SKUs relocated to Front Bay A. Video logs generated.`);
     }, 2000);
   };
 
@@ -56,7 +56,7 @@ export default function AIAdvisory() {
             </div>
 
             <span className={`hud-badge ${activeProposal.status === 'APPROVED' ? 'hud-badge-green' : activeProposal.status === 'EXECUTED' ? 'hud-badge-cyan' : 'hud-badge-amber'}`}>
-              {activeProposal.status === 'PENDING_APPROVAL' ? '⏳ WAITING MANAGER APPROVAL' : activeProposal.status}
+              {activeProposal.status === 'PENDING_APPROVAL' ? 'WAITING APPROVAL' : activeProposal.status}
             </span>
           </div>
 
@@ -144,7 +144,7 @@ export default function AIAdvisory() {
                   </div>
 
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                    💡 AI Rationale: {item.reason}
+                    AI Rationale: {item.reason}
                   </div>
                 </div>
               ))}
@@ -160,7 +160,7 @@ export default function AIAdvisory() {
                   className="btn-cyber btn-cyber-primary"
                   style={{ flex: 1, justifyContent: 'center', padding: '10px' }}
                 >
-                  ✓ 1-CLICK APPROVE PROPOSAL (MANAGER SIGN-OFF)
+                  ✓ APPROVE PROPOSAL (MANAGER SIGN-OFF)
                 </button>
                 <button
                   onClick={() => alert('Proposal rejected. AI model updated with manager preference constraints.')}
@@ -177,7 +177,7 @@ export default function AIAdvisory() {
                 className="btn-cyber btn-cyber-primary"
                 style={{ flex: 1, justifyContent: 'center', padding: '10px' }}
               >
-                {isSimulatingExecution ? '⏳ SIMULATING OFF-PEAK RELOCATION...' : '▶ SIMULATE IMMEDIATE EXECUTION'}
+                {isSimulatingExecution ? 'SIMULATING RELOCATION...' : 'SIMULATE IMMEDIATE EXECUTION'}
               </button>
             ) : (
               <div style={{
@@ -224,7 +224,9 @@ export default function AIAdvisory() {
                   gap: '8px'
                 }}
               >
-                <span style={{ color: 'var(--tech-cyan)', fontSize: '1rem' }}>🛡</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--tech-cyan)', flexShrink: 0 }}>
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
                 <span>{guarantee}</span>
               </div>
             ))}

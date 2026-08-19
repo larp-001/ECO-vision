@@ -10,7 +10,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
     setIsIntruderSimulated(true);
     setSecurityStatus('INTRUDER_DETECTED_ALARM');
     setTimeout(() => {
-      alert('🚨 NIGHT SECURITY ALARM!\nmmWave Radar detected unauthorized human movement in Zone B during Deep Sleep. Camera woke up instantly, snapped 10s video evidence, and dispatched push notification to Factory Manager!');
+      alert('NIGHT SECURITY ALARM!\nmmWave Radar detected unauthorized human movement in Zone B during Deep Sleep. Camera woke up instantly and dispatched push notification.');
     }, 400);
   };
 
@@ -63,7 +63,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
                 className={`btn-cyber ${isSleep ? 'btn-cyber-primary' : ''}`}
                 style={{ fontSize: '0.78rem', padding: '6px 12px' }}
               >
-                {isSleep ? '☀️ WAKE TO ACTIVE MODE' : '🌙 ENTER NIGHT SLEEP MODE'}
+                {isSleep ? 'WAKE TO ACTIVE MODE' : 'ENTER NIGHT SLEEP MODE'}
               </button>
             </div>
           </div>
@@ -80,7 +80,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
           }}>
             <div>
               <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isSleep ? '#e1bee7' : 'var(--eco-green)' }}>
-                {isSleep ? '🌙 DEEP SLEEP ACTIVE (85-90% ENERGY SAVED)' : '⚡ STANDARD OPERATION MODE (ACTIVE)'}
+                {isSleep ? 'DEEP SLEEP ACTIVE (85-90% ENERGY SAVED)' : 'STANDARD OPERATION MODE (ACTIVE)'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                 {isSleep
@@ -153,7 +153,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className={`status-pulse ${isIntruderSimulated ? 'red' : 'green'}`}></span>
                 <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: isIntruderSimulated ? 'var(--danger-red)' : '#fff' }}>
-                  {isIntruderSimulated ? '🚨 INTRUDER / NIGHT MOVEMENT DETECTED!' : '🛡 LOW-POWER NIGHT RADAR GUARD (PERIMETER SECURE)'}
+                  {isIntruderSimulated ? 'INTRUDER / NIGHT MOVEMENT DETECTED!' : 'LOW-POWER NIGHT RADAR GUARD (PERIMETER SECURE)'}
                 </span>
               </div>
 
@@ -175,7 +175,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
                   className="btn-cyber btn-cyber-danger"
                   style={{ fontSize: '0.78rem', padding: '6px 12px' }}
                 >
-                  ⚡ SIMULATE NIGHT INTRUDER DETECTION
+                  SIMULATE NIGHT INTRUDER DETECTION
                 </button>
               ) : (
                 <button
@@ -183,7 +183,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
                   className="btn-cyber btn-cyber-primary"
                   style={{ fontSize: '0.78rem', padding: '6px 12px' }}
                 >
-                  ✓ ACKNOWLEDGE & RESET SECURITY GUARD
+                  ACKNOWLEDGE & RESET SECURITY GUARD
                 </button>
               )}
             </div>
@@ -254,7 +254,7 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
           fontSize: '0.8rem'
         }}>
           <div style={{ fontWeight: 'bold', color: 'var(--eco-green)' }}>
-            🌱 ESG & Green Energy Harvest Telemetry:
+            ESG & Green Energy Harvest Telemetry:
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Solar Ambient Harvest:</span>
@@ -273,11 +273,11 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
         {/* Action Button */}
         <div style={{ marginTop: 'auto' }}>
           <button
-            onClick={() => alert('📄 EOD Report & Video Audit Manifest exported as PDF / Excel spreadsheet.')}
+            onClick={() => alert('EOD Report & Video Audit Manifest exported as PDF / Excel spreadsheet.')}
             className="btn-cyber btn-cyber-primary"
             style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
           >
-            📥 EXPORT MANAGER EOD AUDIT REPORT
+            EXPORT MANAGER EOD AUDIT REPORT
           </button>
         </div>
       </div>

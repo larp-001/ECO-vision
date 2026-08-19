@@ -1,6 +1,40 @@
 import React, { useState } from 'react';
 import { MOCK_INVENTORY } from '../data/mockData';
 
+const Icons = {
+  Box: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+    </svg>
+  ),
+  Flask: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2v7.31L4.62 17.6A2 2 0 0 0 6.3 20.6h11.4a2 2 0 0 0 1.68-3L14 9.31V2"></path>
+      <line x1="8.5" y1="2" x2="15.5" y2="2"></line>
+    </svg>
+  ),
+  Bot: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+      <circle cx="12" cy="5" r="2"></circle>
+      <path d="M12 7v4"></path>
+    </svg>
+  ),
+  Search: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  ),
+  Play: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"></polygon>
+    </svg>
+  )
+};
+
 export default function InventoryPanel({ onDispatchPick }) {
   const [inventoryList, setInventoryList] = useState(MOCK_INVENTORY);
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,7 +56,7 @@ export default function InventoryPanel({ onDispatchPick }) {
   const handleDispatchRobot = (item) => {
     setIsPicking(true);
     setTimeout(() => {
-      alert(`🤖 AMR DISPATCHED TO SHELF ${item.shelf}!\nTarget SKU: ${item.name}\nVision AI will record a 5-10s verified audit clip upon pick.`);
+      alert(`AMR DISPATCHED TO SHELF ${item.shelf}!\nTarget SKU: ${item.name}\nVision AI will record a verified audit clip.`);
       setIsPicking(false);
       if (onDispatchPick) onDispatchPick(item);
     }, 500);
@@ -60,14 +94,14 @@ export default function InventoryPanel({ onDispatchPick }) {
                 className={`btn-cyber ${activeTab === 'GRID' ? 'btn-cyber-primary' : ''}`}
                 style={{ fontSize: '0.75rem', padding: '4px 10px' }}
               >
-                📋 CATALOG LIST
+                CATALOG LIST
               </button>
               <button
                 onClick={() => setActiveTab('DIGITAL_TWIN')}
                 className={`btn-cyber ${activeTab === 'DIGITAL_TWIN' ? 'btn-cyber-primary' : ''}`}
                 style={{ fontSize: '0.75rem', padding: '4px 10px' }}
               >
-                🌐 3D DIGITAL TWIN
+                3D DIGITAL TWIN
               </button>
             </div>
           </div>
@@ -143,16 +177,16 @@ export default function InventoryPanel({ onDispatchPick }) {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: '6px',
-                      background: 'rgba(0,0,0,0.4)',
+                      background: 'rgba(255,255,255,0.06)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '1.2rem'
+                      color: item.category.includes('Chemical') || item.category.includes('Glassware') ? '#38bdf8' : '#34d399'
                     }}>
-                      {item.category.includes('Chemical') ? '🧪' : item.category.includes('Pharmaceuticals') ? '💉' : item.category.includes('Glassware') ? '🔬' : '📦'}
+                      {item.category.includes('Chemical') || item.category.includes('Glassware') ? <Icons.Flask /> : <Icons.Box />}
                     </div>
 
                     <div>
@@ -181,7 +215,7 @@ export default function InventoryPanel({ onDispatchPick }) {
                     </div>
 
                     <span className={`hud-badge ${isWarning ? 'hud-badge-amber' : 'hud-badge-green'}`} style={{ fontSize: '0.65rem' }}>
-                      {isWarning ? '⚠️ INSPECT SEAL' : '✓ QC VERIFIED'}
+                      {isWarning ? 'INSPECT SEAL' : '✓ QC VERIFIED'}
                     </span>
                   </div>
                 </div>
@@ -270,12 +304,11 @@ export default function InventoryPanel({ onDispatchPick }) {
                   fontWeight: 'bold',
                   fontSize: '0.75rem',
                   fontFamily: 'var(--font-mono)',
-                  boxShadow: '0 0 15px rgba(0, 230, 118, 0.6)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '5px'
                 }}>
-                  <span>🤖</span>
+                  <Icons.Bot />
                   <span>ECO-AMR-01 [0.85m/s]</span>
                 </div>
               </div>
@@ -366,8 +399,9 @@ export default function InventoryPanel({ onDispatchPick }) {
               gap: '6px',
               fontSize: '0.78rem'
             }}>
-              <div style={{ fontWeight: 'bold', color: 'var(--tech-cyan)' }}>
-                🔍 Vision AI Real-Time Quality Telemetry:
+              <div style={{ fontWeight: 'bold', color: 'var(--tech-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Icons.Search />
+                <span>Vision AI Quality Telemetry:</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Liquid Volume / Fill:</span>
@@ -391,9 +425,10 @@ export default function InventoryPanel({ onDispatchPick }) {
                 disabled={isPicking}
                 onClick={() => handleDispatchRobot(selectedSKU)}
                 className="btn-cyber btn-cyber-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '0.92rem' }}
+                style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                {isPicking ? '⏳ AMR EN ROUTE...' : `🚀 DISPATCH AMR TO PICK (${selectedSKU.shelf})`}
+                <Icons.Play />
+                <span>{isPicking ? 'AMR EN ROUTE...' : `DISPATCH AMR TO PICK (${selectedSKU.shelf})`}</span>
               </button>
             </div>
           </div>
