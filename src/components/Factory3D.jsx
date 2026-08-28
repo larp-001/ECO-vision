@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import ToolDrawer from './ToolDrawer';
-import ObjectInspector from './ObjectInspector';
-import ProjectHeroHeader from './ProjectHeroHeader';
+import ToolDrawer from './ToolDrawer.jsx';
+import ObjectInspector from './ObjectInspector.jsx';
+import ProjectHeroHeader from './ProjectHeroHeader.jsx';
+import RobotInfoPanel from './RobotInfoPanel.jsx';
 
 // Crisp, Minimalist SVG Icons (No Emojis)
 const Icons = {
@@ -118,6 +119,54 @@ const Icons = {
       <polyline points="20 6 9 17 4 12"></polyline>
     </svg>
   ),
+  Rotate: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10"></polyline>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+    </svg>
+  ),
+  Brush: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13.5l-8.5 8.5a2.12 2.12 0 0 1-3-3L15 10.5"></path>
+      <path d="M14 6l4-4 4 4-4 4"></path>
+    </svg>
+  ),
+  Eraser: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 21L20 8l-4-4L3 17l4 4z"></path>
+      <path d="M18 10l-4-4"></path>
+      <line x1="7" y1="21" x2="17" y2="21"></line>
+    </svg>
+  ),
+  Grid: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"></rect>
+      <rect x="14" y="3" width="7" height="7"></rect>
+      <rect x="14" y="14" width="7" height="7"></rect>
+      <rect x="3" y="14" width="7" height="7"></rect>
+    </svg>
+  ),
+  Road: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20L9 4h6l5 16"></path>
+      <line x1="12" y1="8" x2="12" y2="11"></line>
+      <line x1="12" y1="14" x2="12" y2="17"></line>
+    </svg>
+  ),
+};
+
+// Helper to compute array of tiles around center given brush size
+const getBrushTiles = (centerGx, centerGz, brushSize = 1) => {
+  const list = [];
+  const offset = Math.floor((brushSize - 1) / 2);
+  for (let ox = 0; ox < brushSize; ox++) {
+    for (let oz = 0; oz < brushSize; oz++) {
+      const gx = centerGx - offset + ox;
+      const gz = centerGz - offset + oz;
+      list.push({ gx, gz, key: roadTileKey(gx, gz) });
+    }
+  }
+  return list;
 };
 
 // Precise 2D AABB collision check with Rotation support (Prevent overlapping/stacking)
@@ -172,65 +221,286 @@ const snapCoordinate = (coord, size) => {
   }
 };
 
-// Initial Authentic Factory Layout (4 Core Types: Racks, Parcels, Charger, Pin)
+// Initial Authentic Factory Layout: 60m x 58m Master Floorplan (16 Storage Racks, 1 Inbound Pallet, 1 Supercharger Dock)
 const INITIAL_DEMO_OBJECTS = [
-  { id: 'DEMO_RACK_1', name: 'ชั้นวางสินค้าหลัก Bay-A01', type: 'STORAGE_RACK', x: -13, z: -9, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-  { id: 'DEMO_CHARGER', name: 'แท่นชาร์จหุ่นยนต์ Dock-01', type: 'CHARGING_STATION', x: -15, z: 3, width: 2.0, height: 2.2, depth: 2.0, isPinned: true },
-  { id: 'DEMO_PARCEL_1', name: 'กองพาเลทสินค้า Pallet-01', type: 'PARCEL_BOX', x: -15, z: 9, width: 2.0, height: 1.8, depth: 2.0, isPinned: false },
-  { id: 'DEMO_RACK_2', name: 'ชั้นวางสินค้า Bay-B01', type: 'STORAGE_RACK', x: 13, z: -9, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-  { id: 'DEMO_RACK_3', name: 'ชั้นวางสินค้า Bay-B02', type: 'STORAGE_RACK', x: 13, z: 1, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-  { id: 'DEMO_PARCEL_2', name: 'กล่องพัสดุลำเลียง P-02', type: 'PARCEL_BOX', x: 13, z: 9, width: 2.0, height: 1.8, depth: 2.0, isPinned: false },
-  { id: 'DEMO_PIN_1', name: 'หมุดหยิบของ Line-01', type: 'PICKUP_PIN', x: 1, z: 5, width: 2.0, height: 2.4, depth: 2.0, isPinned: true },
+  // Wing A (Left side: 2 columns x 4 rows = 8 racks)
+  { id: 'RACK_A01', name: 'ชั้นวางสินค้า Bay-A01', type: 'STORAGE_RACK', x: -19, z: -18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A02', name: 'ชั้นวางสินค้า Bay-A02', type: 'STORAGE_RACK', x: -19, z: -6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A03', name: 'ชั้นวางสินค้า Bay-A03', type: 'STORAGE_RACK', x: -19, z: 6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A04', name: 'ชั้นวางสินค้า Bay-A04', type: 'STORAGE_RACK', x: -19, z: 18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+
+  { id: 'RACK_A05', name: 'ชั้นวางสินค้า Bay-A05', type: 'STORAGE_RACK', x: -9, z: -18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A06', name: 'ชั้นวางสินค้า Bay-A06', type: 'STORAGE_RACK', x: -9, z: -6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A07', name: 'ชั้นวางสินค้า Bay-A07', type: 'STORAGE_RACK', x: -9, z: 6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_A08', name: 'ชั้นวางสินค้า Bay-A08', type: 'STORAGE_RACK', x: -9, z: 18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+
+  // Wing B (Right side: 2 columns x 4 rows = 8 racks)
+  { id: 'RACK_B01', name: 'ชั้นวางสินค้า Bay-B01', type: 'STORAGE_RACK', x: 9, z: -18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B02', name: 'ชั้นวางสินค้า Bay-B02', type: 'STORAGE_RACK', x: 9, z: -6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B03', name: 'ชั้นวางสินค้า Bay-B03', type: 'STORAGE_RACK', x: 9, z: 6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B04', name: 'ชั้นวางสินค้า Bay-B04', type: 'STORAGE_RACK', x: 9, z: 18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+
+  { id: 'RACK_B05', name: 'ชั้นวางสินค้า Bay-B05', type: 'STORAGE_RACK', x: 19, z: -18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B06', name: 'ชั้นวางสินค้า Bay-B06', type: 'STORAGE_RACK', x: 19, z: -6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B07', name: 'ชั้นวางสินค้า Bay-B07', type: 'STORAGE_RACK', x: 19, z: 6, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+  { id: 'RACK_B08', name: 'ชั้นวางสินค้า Bay-B08', type: 'STORAGE_RACK', x: 19, z: 18, width: 6.0, height: 5.5, depth: 2.0, deliveredBoxes: 0, targetBoxes: 3, isPinned: true },
+
+  // Supercharging Station Dock on far left
+  { id: 'DEMO_CHARGER', name: 'แท่นชาร์จหุ่นยนต์ Dock-01', type: 'CHARGING_STATION', x: -27, z: 14, width: 2.0, height: 2.4, depth: 2.0, isPinned: false },
+
+  // Inbound Central Staging Pallet
+  { id: 'DEMO_PARCEL_1', name: 'กองพาเลทรับสินค้าหลัก Pallet-01', type: 'PARCEL_BOX', x: 0, z: 20, width: 4.0, height: 1.8, depth: 2.4, isPinned: true },
 ];
+
+// ==========================================================
+// TILE-BASED ROAD NETWORK: 2m x 2m floor tiles as "road".
+// The AMR travels strictly along the painted road tiles (via Dijkstra shortest-path graph search)
+// ==========================================================
+const ROAD_TILE_SIZE = 2;
+const roadTileKey = (gx, gz) => `${gx},${gz}`;
+const roadTileToWorld = (gx, gz) => ({ x: gx * ROAD_TILE_SIZE, z: gz * ROAD_TILE_SIZE });
+const roadWorldToTile = (x, z) => ({ gx: Math.round(x / ROAD_TILE_SIZE), gz: Math.round(z / ROAD_TILE_SIZE) });
+
+const buildLoopRoadTiles = (corners) => {
+  const seen = new Set();
+  const keys = [];
+  const addTile = (x, z) => {
+    const { gx, gz } = roadWorldToTile(x, z);
+    const key = roadTileKey(gx, gz);
+    if (!seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
+    }
+  };
+  for (let i = 0; i < corners.length; i++) {
+    const a = corners[i];
+    const b = corners[(i + 1) % corners.length];
+    const steps = Math.round(Math.max(Math.abs(b.x - a.x), Math.abs(b.z - a.z)) / ROAD_TILE_SIZE);
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 0 : s / steps;
+      addTile(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t);
+    }
+  }
+  return keys;
+};
+
+// Generates the comprehensive Master Factory Road Network covering all 16 racks, aisles, and charger
+const generateMasterFactoryRoadTiles = () => {
+  const tileSet = new Set();
+  const addTile = (gx, gz) => tileSet.add(`${gx},${gz}`);
+
+  // 1. Center main avenue (gx from -3 to 3, gz from -13 to 13)
+  for (let gx = -3; gx <= 3; gx++) {
+    for (let gz = -13; gz <= 13; gz++) {
+      addTile(gx, gz);
+    }
+  }
+
+  // 2. Horizontal cross aisles spanning from left to right (gx from -14 to 14)
+  const crossGzs = [-13, -12, -6, 0, 6, 12, 13];
+  crossGzs.forEach((gz) => {
+    for (let gx = -14; gx <= 14; gx++) {
+      addTile(gx, gz);
+    }
+  });
+
+  // 3. Vertical aisles between rack columns
+  for (let gz = -13; gz <= 13; gz++) {
+    addTile(-7, gz); // Left aisle between Col 1 & Col 2
+    addTile(7, gz);  // Right aisle between Col 3 & Col 4
+  }
+
+  // 4. Perimeter roads
+  for (let gz = -13; gz <= 13; gz++) {
+    addTile(-13, gz); // Left perimeter (leads to charger dock at -27, 14)
+    addTile(-14, gz);
+    addTile(13, gz);  // Right perimeter
+    addTile(14, gz);
+  }
+
+  // 5. Pallet receiving staging apron (z = 18 to 22, gz = 9 to 11)
+  for (let gx = -4; gx <= 4; gx++) {
+    for (let gz = 9; gz <= 11; gz++) {
+      addTile(gx, gz);
+    }
+  }
+
+  return Array.from(tileSet);
+};
+
+const INITIAL_ROAD_TILES = generateMasterFactoryRoadTiles();
+
+// Road-graph pathfinding: shortest path (Dijkstra, 8-directional tile adjacency)
+// Keeps the AMR strictly traveling through authored road tiles instead of clipping through racks.
+const computeRoadPath = (fromPos, toPos, roadTiles) => {
+  if (!roadTiles || roadTiles.length === 0) {
+    return [toPos.clone()];
+  }
+
+  const tileSet = new Set(roadTiles);
+  const tiles = roadTiles.map((key) => {
+    const [gx, gz] = key.split(',').map(Number);
+    const w = roadTileToWorld(gx, gz);
+    return { key, gx, gz, x: w.x, z: w.z };
+  });
+  const tileByKey = new Map(tiles.map((t) => [t.key, t]));
+
+  const nearestTile = (pos) => {
+    let best = null, bestDist = Infinity;
+    tiles.forEach((t) => {
+      const d = Math.hypot(t.x - pos.x, t.z - pos.z);
+      if (d < bestDist) { bestDist = d; best = t; }
+    });
+    return best;
+  };
+
+  const startTile = nearestTile(fromPos);
+  const endTile = nearestTile(toPos);
+  if (!startTile || !endTile) return [toPos.clone()];
+  if (startTile.key === endTile.key) {
+    return [new THREE.Vector3(startTile.x, 0.4, startTile.z), toPos.clone()];
+  }
+
+  const dist = new Map(tiles.map((t) => [t.key, Infinity]));
+  const prev = new Map();
+  const visited = new Set();
+  dist.set(startTile.key, 0);
+
+  while (true) {
+    let u = null, uDist = Infinity;
+    tiles.forEach((t) => {
+      if (!visited.has(t.key) && dist.get(t.key) < uDist) {
+        uDist = dist.get(t.key);
+        u = t;
+      }
+    });
+    if (!u || u.key === endTile.key) break;
+    visited.add(u.key);
+
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dz === 0) continue;
+        const v = tileByKey.get(roadTileKey(u.gx + dx, u.gz + dz));
+        if (!v || !tileSet.has(v.key)) continue;
+        const w = Math.hypot(u.x - v.x, u.z - v.z);
+        const alt = dist.get(u.key) + w;
+        if (alt < dist.get(v.key)) {
+          dist.set(v.key, alt);
+          prev.set(v.key, u.key);
+        }
+      }
+    }
+  }
+
+  if (dist.get(endTile.key) === Infinity) {
+    return [toPos.clone()];
+  }
+
+  const pathKeys = [];
+  let cur = endTile.key;
+  while (cur) {
+    pathKeys.unshift(cur);
+    if (cur === startTile.key) break;
+    cur = prev.get(cur);
+  }
+
+  const path = pathKeys.map((key) => {
+    const t = tileByKey.get(key);
+    return new THREE.Vector3(t.x, 0.4, t.z);
+  });
+  path.push(toPos.clone());
+  return path;
+};
+
+// 16 Full Master Dispatch Routes from Pallet to each of the 16 Storage Racks
+const INITIAL_DISPATCH_ROUTES = [
+  { id: 'ROUTE_A01', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A01', toName: 'ชั้นวางสินค้า Bay-A01', toPos: [-19, -18], completed: false },
+  { id: 'ROUTE_A02', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A02', toName: 'ชั้นวางสินค้า Bay-A02', toPos: [-19, -6], completed: false },
+  { id: 'ROUTE_A03', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A03', toName: 'ชั้นวางสินค้า Bay-A03', toPos: [-19, 6], completed: false },
+  { id: 'ROUTE_A04', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A04', toName: 'ชั้นวางสินค้า Bay-A04', toPos: [-19, 18], completed: false },
+  { id: 'ROUTE_A05', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A05', toName: 'ชั้นวางสินค้า Bay-A05', toPos: [-9, -18], completed: false },
+  { id: 'ROUTE_A06', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A06', toName: 'ชั้นวางสินค้า Bay-A06', toPos: [-9, -6], completed: false },
+  { id: 'ROUTE_A07', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A07', toName: 'ชั้นวางสินค้า Bay-A07', toPos: [-9, 6], completed: false },
+  { id: 'ROUTE_A08', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_A08', toName: 'ชั้นวางสินค้า Bay-A08', toPos: [-9, 18], completed: false },
+  { id: 'ROUTE_B01', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B01', toName: 'ชั้นวางสินค้า Bay-B01', toPos: [9, -18], completed: false },
+  { id: 'ROUTE_B02', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B02', toName: 'ชั้นวางสินค้า Bay-B02', toPos: [9, -6], completed: false },
+  { id: 'ROUTE_B03', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B03', toName: 'ชั้นวางสินค้า Bay-B03', toPos: [9, 6], completed: false },
+  { id: 'ROUTE_B04', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B04', toName: 'ชั้นวางสินค้า Bay-B04', toPos: [9, 18], completed: false },
+  { id: 'ROUTE_B05', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B05', toName: 'ชั้นวางสินค้า Bay-B05', toPos: [19, -18], completed: false },
+  { id: 'ROUTE_B06', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B06', toName: 'ชั้นวางสินค้า Bay-B06', toPos: [19, -6], completed: false },
+  { id: 'ROUTE_B07', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B07', toName: 'ชั้นวางสินค้า Bay-B07', toPos: [19, 6], completed: false },
+  { id: 'ROUTE_B08', fromId: 'DEMO_PARCEL_1', fromName: 'กองพาเลทรับสินค้าหลัก Pallet-01', fromPos: [0, 20], toId: 'RACK_B08', toName: 'ชั้นวางสินค้า Bay-B08', toPos: [19, 18], completed: false }
+];
+
+// 3D Floating Success Badge Generator
+const createSuccessFloatingBadge = (x, y, z, rackName = 'ชั้นวาง') => {
+  const badgeGroup = new THREE.Group();
+  badgeGroup.position.set(x, y, z);
+  badgeGroup.userData = {
+    isFloatingBadge: true,
+    birthTime: performance.now(),
+    baseY: y
+  };
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#16a34a';
+  ctx.beginPath();
+  ctx.roundRect(10, 10, 492, 140, 36);
+  ctx.fill();
+
+  ctx.strokeStyle = '#86efac';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 42px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('✨ จัดเก็บเต็มแล้ว (100%)', 256, 80);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const badgeMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.98 });
+  const sprite = new THREE.Sprite(badgeMat);
+  sprite.scale.set(4.8, 1.5, 1);
+  badgeGroup.add(sprite);
+
+  const ringGeo = new THREE.RingGeometry(1.2, 1.8, 32);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = -0.5;
+  badgeGroup.add(ring);
+
+  return badgeGroup;
+};
 
 const DEFAULT_SAVED_LAYOUTS = [
   {
-    id: 'LAYOUT_DEFAULT_1',
-    name: 'ผังคลังสินค้ามาตรฐาน Zone-A (ตัวอย่าง)',
-    savedAt: '18/08/2026 23:30',
-    gridSize: { width: 52, depth: 36 },
+    id: 'LAYOUT_MASTER_60x58',
+    name: 'ผังคลังสินค้ามาตรฐาน 60×58m (16 ชั้นวาง + โซนถนน)',
+    savedAt: 'ผังหลักระบบ',
+    gridSize: { width: 60, depth: 58 },
     objects: INITIAL_DEMO_OBJECTS,
-    routes: [
-      {
-        id: 'ROUTE_DEMO_1',
-        fromId: 'DEMO_PARCEL_1',
-        fromName: 'กองพาเลทสินค้า Pallet-01',
-        fromPos: [-15, 9],
-        toId: 'DEMO_RACK_1',
-        toName: 'ชั้นวางสินค้าหลัก Bay-A01',
-        toPos: [-13, -9]
-      }
-    ]
+    roadTiles: INITIAL_ROAD_TILES,
+    routes: INITIAL_DISPATCH_ROUTES
   },
   {
-    id: 'LAYOUT_DEFAULT_2',
-    name: 'ผังกระจายสินค้า High-Density Zone-B',
-    savedAt: '18/08/2026 22:15',
-    gridSize: { width: 60, depth: 40 },
-    objects: [
-      { id: 'RACK_B1', name: 'ชั้นวางสินค้า Bay-B01', type: 'STORAGE_RACK', x: -18, z: -10, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-      { id: 'RACK_B2', name: 'ชั้นวางสินค้า Bay-B02', type: 'STORAGE_RACK', x: -18, z: 0, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-      { id: 'RACK_B3', name: 'ชั้นวางสินค้า Bay-B03', type: 'STORAGE_RACK', x: 18, z: -10, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-      { id: 'RACK_B4', name: 'ชั้นวางสินค้า Bay-B04', type: 'STORAGE_RACK', x: 18, z: 0, width: 6.0, height: 5.5, depth: 2.0, isPinned: false },
-      { id: 'CHARGER_B', name: 'แท่นชาร์จ Fast-Dock 01', type: 'CHARGING_STATION', x: 0, z: -14, width: 2.0, height: 2.4, depth: 2.0, isPinned: true },
-      { id: 'PARCEL_B1', name: 'กองพัสดุรับเข้า Inbound-01', type: 'PARCEL_BOX', x: -6, z: 12, width: 2.0, height: 1.8, depth: 2.0, isPinned: false },
-      { id: 'PARCEL_B2', name: 'กองพัสดุรับเข้า Inbound-02', type: 'PARCEL_BOX', x: 6, z: 12, width: 2.0, height: 1.8, depth: 2.0, isPinned: false },
-    ],
-    routes: [
-      {
-        id: 'ROUTE_B_1',
-        fromId: 'PARCEL_B1',
-        fromName: 'กองพัสดุรับเข้า Inbound-01',
-        fromPos: [-6, 12],
-        toId: 'RACK_B1',
-        toName: 'ชั้นวางสินค้า Bay-B01',
-        toPos: [-18, -10]
-      }
-    ]
+    id: 'LAYOUT_DEFAULT_COMPACT',
+    name: 'ผังคลังสินค้าขนาดกลาง Zone-A (52×36m)',
+    savedAt: 'ผังสำรอง',
+    gridSize: { width: 52, depth: 36 },
+    objects: INITIAL_DEMO_OBJECTS.slice(0, 9),
+    roadTiles: INITIAL_ROAD_TILES,
+    routes: INITIAL_DISPATCH_ROUTES.slice(0, 4)
   }
 ];
 
-export default function Factory3D() {
+export default function Factory3D({ onOpenDashboard }) {
   const mountRef = useRef(null);
 
   // App Modes: 'OPERATION' (View-only show/demo) | 'SETTING' (Clean Blank Grid Custom Builder)
@@ -249,8 +519,11 @@ export default function Factory3D() {
   const [cameraView, setCameraView] = useState('ISOMETRIC');
   const [hasAnomaly, setHasAnomaly] = useState(false);
 
-  // Dynamic Floor & Grid Dimensions (Width x Depth in meters)
-  const [gridSize, setGridSize] = useState({ width: 52, depth: 36 });
+  // Dynamic Floor & Grid Dimensions (Width x Depth in meters: 60x58 Master Default)
+  const [gridSize, setGridSize] = useState({ width: 60, depth: 58 });
+
+  // Speed Multiplier: 1x, 2x, 3x, 5x Simulation Animation Speed
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
 
   // Selected tool in Setting Mode: null (Hand/Orbit/Pan Mode) | 'STORAGE_RACK' | 'PARCEL_BOX' | 'CHARGING_STATION' | 'PICKUP_PIN'
   const [selectedObjectType, setSelectedObjectType] = useState(null);
@@ -261,24 +534,23 @@ export default function Factory3D() {
   const [placedObjects, setPlacedObjects] = useState(INITIAL_DEMO_OBJECTS);
 
   // AMR Robot Dispatch Routes (Parcel Box -> Storage Rack)
-  const [dispatchRoutes, setDispatchRoutes] = useState([
-    {
-      id: 'ROUTE_DEMO_1',
-      fromId: 'DEMO_PARCEL_1',
-      fromName: 'กองพาเลทสินค้า Pallet-01',
-      fromPos: [-15, 9],
-      toId: 'DEMO_RACK_1',
-      toName: 'ชั้นวางสินค้าหลัก Bay-A01',
-      toPos: [-13, -9]
-    }
-  ]);
+  const [dispatchRoutes, setDispatchRoutes] = useState(INITIAL_DISPATCH_ROUTES);
   const [selectedRouteSource, setSelectedRouteSource] = useState(null);
+
+  // Authored ROAD network (a set of painted 2m grid-tile keys, e.g. "3,-2") the AMR
+  // travels along instead of beelining straight through the shelving. In SETTING
+  // mode, hover a tile with the "ถนน" tool active and click to paint/erase it.
+  const [roadTiles, setRoadTiles] = useState(INITIAL_ROAD_TILES);
   const [routeNotification, setRouteNotification] = useState(null);
 
-  // SAVED LAYOUTS HISTORY STATE (Persisted in localStorage)
+  // Dedicated Road Brush Tool Settings (Brush Size Slider & Auto Mode)
+  const [roadBrushSize, setRoadBrushSize] = useState(1); // 1, 2, 3, 4 (2m, 4m, 6m, 8m)
+  const [roadToolMode] = useState('AUTO'); // Always in seamless AUTO mode (paint empty / erase existing)
+
+  // SAVED LAYOUTS HISTORY STATE (Persisted in localStorage V3)
   const [savedLayouts, setSavedLayouts] = useState(() => {
     try {
-      const stored = localStorage.getItem('ECO_VISION_SAVED_LAYOUTS');
+      const stored = localStorage.getItem('ECO_VISION_SAVED_LAYOUTS_V3');
       return stored ? JSON.parse(stored) : DEFAULT_SAVED_LAYOUTS;
     } catch {
       return DEFAULT_SAVED_LAYOUTS;
@@ -287,7 +559,7 @@ export default function Factory3D() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('ECO_VISION_SAVED_LAYOUTS', JSON.stringify(savedLayouts));
+      localStorage.setItem('ECO_VISION_SAVED_LAYOUTS_V3', JSON.stringify(savedLayouts));
     } catch (err) {
       console.warn('Cannot persist layouts to localStorage', err);
     }
@@ -301,7 +573,8 @@ export default function Factory3D() {
       savedAt: new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }),
       gridSize: { ...gridSize },
       objects: [...placedObjects],
-      routes: [...dispatchRoutes]
+      routes: [...dispatchRoutes],
+      roadTiles: [...roadTiles]
     };
     setSavedLayouts((prev) => [newEntry, ...prev]);
     setRouteNotification(`บันทึก "${newEntry.name}" สำเร็จ`);
@@ -316,6 +589,7 @@ export default function Factory3D() {
     }
     setPlacedObjects(layout.objects || []);
     setDispatchRoutes(layout.routes || []);
+    setRoadTiles(layout.roadTiles || []);
     setSelectedObject(null);
     setSelectedRouteSource(null);
     setRouteNotification(`โหลดผัง "${layout.name}" สำเร็จ`);
@@ -376,8 +650,13 @@ export default function Factory3D() {
     mode: 'กำลังวิ่งลำเลียงตามรางกลางโรงงาน',
     target: 'จุดชาร์จ Dock-01',
     battery: 98,
-    pickedCount: 14
+    pickedCount: 14,
+    currentBoxes: 2,
+    maxBoxes: 6
   });
+
+  // Click-to-inspect panel for the robot itself (OPERATION mode only)
+  const [robotPanelOpen, setRobotPanelOpen] = useState(false);
 
   const sceneStateRef = useRef({
     robot: null,
@@ -443,8 +722,19 @@ export default function Factory3D() {
     mouse: new THREE.Vector2(),
     isPlacingMode: false,
     selectedObjectType: null,
-    placedObjects: INITIAL_DEMO_OBJECTS
+    placedObjects: INITIAL_DEMO_OBJECTS,
+    roadTiles: INITIAL_ROAD_TILES,
+    speedMultiplier: 1,
+    floatingBadges: [],
+    roadLinesGroup: null,
+    roadHoverMesh: null,
+    roadHoverGx: null,
+    roadHoverGz: null
   });
+
+  useEffect(() => {
+    sceneStateRef.current.speedMultiplier = speedMultiplier;
+  }, [speedMultiplier]);
 
   useEffect(() => {
     sceneStateRef.current.cameraView = cameraView;
@@ -490,6 +780,10 @@ export default function Factory3D() {
   useEffect(() => {
     sceneStateRef.current.workflowRoutes = dispatchRoutes;
   }, [dispatchRoutes]);
+
+  useEffect(() => {
+    sceneStateRef.current.roadTiles = roadTiles;
+  }, [roadTiles]);
 
   // ==========================================
   // 3D OBJECT MESH BUILDERS
@@ -1076,6 +1370,40 @@ export default function Factory3D() {
       }
     }
 
+    // 3. TRUCK ENTRANCE / EXIT GATE (placeholder marker on the open front side — to be
+    //    refined once a real site layout/reference image is provided)
+    const gateStripeMatA = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthWrite: false });
+    const gateStripeMatB = new THREE.MeshBasicMaterial({ color: 0x111827, depthWrite: false });
+    const gateWidth = 10;
+    const gateZ = gd / 2 - 0.6;
+    const stripeCount = 6;
+    for (let i = 0; i < stripeCount; i++) {
+      const stripe = new THREE.Mesh(
+        new THREE.PlaneGeometry(gateWidth / stripeCount, 1.6),
+        i % 2 === 0 ? gateStripeMatA : gateStripeMatB
+      );
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.set(-gateWidth / 2 + (i + 0.5) * (gateWidth / stripeCount), 0.02, gateZ);
+      envGroup.add(stripe);
+    }
+
+    const gatePostMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5, roughness: 0.4 });
+    const gatePostGeo = new THREE.BoxGeometry(0.4, 4.5, 0.4);
+    const gatePostLeft = new THREE.Mesh(gatePostGeo, gatePostMat);
+    gatePostLeft.position.set(-gateWidth / 2 - 0.5, 2.25, gd / 2 - 0.2);
+    gatePostLeft.castShadow = true;
+    envGroup.add(gatePostLeft);
+
+    const gatePostRight = new THREE.Mesh(gatePostGeo, gatePostMat);
+    gatePostRight.position.set(gateWidth / 2 + 0.5, 2.25, gd / 2 - 0.2);
+    gatePostRight.castShadow = true;
+    envGroup.add(gatePostRight);
+
+    const gateBeam = new THREE.Mesh(new THREE.BoxGeometry(gateWidth + 1.4, 0.4, 0.4), gatePostMat);
+    gateBeam.position.set(0, 4.4, gd / 2 - 0.2);
+    gateBeam.castShadow = true;
+    envGroup.add(gateBeam);
+
     return envGroup;
   };
 
@@ -1174,6 +1502,15 @@ export default function Factory3D() {
     sceneStateRef.current.previewBoxMesh = pBoxMesh;
     sceneStateRef.current.previewEdgesMesh = pEdgesMesh;
     sceneStateRef.current.isPlacementValid = true;
+
+    // --- Road-tile Hover Highlight (paint-tool preview for the "ถนน" tool) ---
+    const roadHoverGeo = new THREE.PlaneGeometry(ROAD_TILE_SIZE * 0.92, ROAD_TILE_SIZE * 0.92);
+    const roadHoverMat = new THREE.MeshBasicMaterial({ color: 0x16a34a, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+    const roadHoverMesh = new THREE.Mesh(roadHoverGeo, roadHoverMat);
+    roadHoverMesh.rotation.x = -Math.PI / 2;
+    roadHoverMesh.visible = false;
+    scene.add(roadHoverMesh);
+    sceneStateRef.current.roadHoverMesh = roadHoverMesh;
 
     const robot = new THREE.Group();
     robot.position.set(-14, 0.4, 0);
@@ -1286,6 +1623,35 @@ export default function Factory3D() {
         sceneStateRef.current.intro.active = false;
       }
 
+      // Drag-to-Paint Road Brush Tool (Continuous Multi-Tile Auto Paint/Erase)
+      if (sceneStateRef.current.appMode === 'SETTING' && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE' && e.button === 0 && !isPan) {
+        const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
+        if (intersects.length > 0) {
+          const pt = intersects[0].point;
+          const { gx, gz } = roadWorldToTile(pt.x, pt.z);
+          const brushSize = sceneStateRef.current.roadBrushSize || 1;
+          const targetTiles = getBrushTiles(gx, gz, brushSize);
+          const targetKeys = targetTiles.map((t) => t.key);
+          const currentRoads = sceneStateRef.current.roadTiles || [];
+
+          // Auto mode: If clicked tile is already a road -> erase; if empty -> paint!
+          const isExisting = currentRoads.includes(roadTileKey(gx, gz));
+          const paintMode = isExisting ? 'REMOVE' : 'ADD';
+
+          sceneStateRef.current.isPaintingRoad = true;
+          sceneStateRef.current.roadPaintMode = paintMode;
+
+          setRoadTiles((prev) => {
+            if (paintMode === 'REMOVE') {
+              return prev.filter((k) => !targetKeys.includes(k));
+            } else {
+              return Array.from(new Set([...prev, ...targetKeys]));
+            }
+          });
+          return;
+        }
+      }
+
       // Track drag start position to differentiate between a click vs camera drag
       sceneStateRef.current.controls.isDragging = true;
       sceneStateRef.current.controls.isPanning = isPan;
@@ -1300,8 +1666,41 @@ export default function Factory3D() {
       sceneStateRef.current.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       sceneStateRef.current.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
+      // Continuous Drag-to-Paint Road Brush
+      if (sceneStateRef.current.isPaintingRoad && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE') {
+        sceneStateRef.current.raycaster.setFromCamera(sceneStateRef.current.mouse, camera);
+        const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
+        if (intersects.length > 0) {
+          const pt = intersects[0].point;
+          const { gx, gz } = roadWorldToTile(pt.x, pt.z);
+          const brushSize = sceneStateRef.current.roadBrushSize || 1;
+          const mode = sceneStateRef.current.roadPaintMode;
+          const targetTiles = getBrushTiles(gx, gz, brushSize);
+          const targetKeys = targetTiles.map((t) => t.key);
+
+          if (sceneStateRef.current.roadHoverMesh) {
+            const avgX = targetTiles.reduce((sum, t) => sum + roadTileToWorld(t.gx, t.gz).x, 0) / targetTiles.length;
+            const avgZ = targetTiles.reduce((sum, t) => sum + roadTileToWorld(t.gx, t.gz).z, 0) / targetTiles.length;
+            sceneStateRef.current.roadHoverMesh.position.set(avgX, 0.09, avgZ);
+            sceneStateRef.current.roadHoverMesh.scale.set(brushSize, brushSize, 1);
+            sceneStateRef.current.roadHoverMesh.visible = true;
+            sceneStateRef.current.roadHoverMesh.material.color.setHex(mode === 'REMOVE' ? 0xef4444 : 0x16a34a);
+          }
+
+          setRoadTiles((prev) => {
+            if (mode === 'ADD') {
+              return Array.from(new Set([...prev, ...targetKeys]));
+            } else if (mode === 'REMOVE') {
+              return prev.filter((k) => !targetKeys.includes(k));
+            }
+            return prev;
+          });
+        }
+        return;
+      }
+
       // Update Placement Ghost Box Position & Strict Collision Check
-      if (sceneStateRef.current.appMode === 'SETTING' && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType && sceneStateRef.current.selectedObjectType !== 'DELETE_PIN' && sceneStateRef.current.floorMesh && sceneStateRef.current.previewGroup) {
+      if (sceneStateRef.current.appMode === 'SETTING' && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType && sceneStateRef.current.selectedObjectType !== 'DELETE_PIN' && sceneStateRef.current.selectedObjectType !== 'ROAD_NODE' && sceneStateRef.current.floorMesh && sceneStateRef.current.previewGroup) {
         sceneStateRef.current.raycaster.setFromCamera(sceneStateRef.current.mouse, camera);
         const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
         if (intersects.length > 0) {
@@ -1340,8 +1739,34 @@ export default function Factory3D() {
             }
           }
         }
-      } else if (sceneStateRef.current.previewGroup) {
-        sceneStateRef.current.previewGroup.visible = false;
+      } else if (sceneStateRef.current.appMode === 'SETTING' && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE' && sceneStateRef.current.floorMesh && sceneStateRef.current.roadHoverMesh) {
+        // Road-tile paint tool: highlight the grid tile(s) under the cursor
+        if (sceneStateRef.current.previewGroup) sceneStateRef.current.previewGroup.visible = false;
+        sceneStateRef.current.raycaster.setFromCamera(sceneStateRef.current.mouse, camera);
+        const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
+        if (intersects.length > 0) {
+          const pt = intersects[0].point;
+          const { gx, gz } = roadWorldToTile(pt.x, pt.z);
+          const brushSize = sceneStateRef.current.roadBrushSize || 1;
+          const toolMode = sceneStateRef.current.roadToolMode || 'PAINT';
+          const targetTiles = getBrushTiles(gx, gz, brushSize);
+
+          const avgX = targetTiles.reduce((sum, t) => sum + roadTileToWorld(t.gx, t.gz).x, 0) / targetTiles.length;
+          const avgZ = targetTiles.reduce((sum, t) => sum + roadTileToWorld(t.gx, t.gz).z, 0) / targetTiles.length;
+
+          sceneStateRef.current.roadHoverMesh.position.set(avgX, 0.09, avgZ);
+          sceneStateRef.current.roadHoverMesh.scale.set(brushSize, brushSize, 1);
+          sceneStateRef.current.roadHoverMesh.visible = true;
+
+          // Auto hover color: RED if hovering over existing road (will erase), GREEN if empty floor (will paint)
+          const isExisting = (sceneStateRef.current.roadTiles || []).includes(roadTileKey(gx, gz));
+          sceneStateRef.current.roadHoverMesh.material.color.setHex(isExisting ? 0xef4444 : 0x16a34a);
+        } else {
+          sceneStateRef.current.roadHoverMesh.visible = false;
+        }
+      } else {
+        if (sceneStateRef.current.previewGroup) sceneStateRef.current.previewGroup.visible = false;
+        if (sceneStateRef.current.roadHoverMesh) sceneStateRef.current.roadHoverMesh.visible = false;
       }
 
       if (!sceneStateRef.current.controls.isDragging) return;
@@ -1383,6 +1808,10 @@ export default function Factory3D() {
     };
 
     const onMouseUp = (e) => {
+      if (sceneStateRef.current.isPaintingRoad) {
+        sceneStateRef.current.isPaintingRoad = false;
+      }
+
       const dragDist = sceneStateRef.current.controls.dragDistance;
       sceneStateRef.current.controls.isDragging = false;
       sceneStateRef.current.controls.isPanning = false;
@@ -1410,6 +1839,12 @@ export default function Factory3D() {
               // A. If in DELETE_PIN Tool Mode -> Delete clicked pin/object immediately!
               if (sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'DELETE_PIN') {
                 handleDeletePin(hitObj.id);
+                return;
+              }
+
+              // A2. If in ROAD_NODE Tool Mode and the click landed on an existing object,
+              // just ignore it (don't create a road node on top of a rack/box/pin).
+              if (sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE') {
                 return;
               }
 
@@ -1450,7 +1885,19 @@ export default function Factory3D() {
             }
           }
 
-          // 2. If Clicked on EMPTY FLOOR in Placement Mode -> Place new object
+          // 2a. ROAD_NODE Tool: hover a tile, click to paint it as road / click again to erase it
+          if (sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE') {
+            const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
+            if (intersects.length > 0) {
+              const pt = intersects[0].point;
+              const { gx, gz } = roadWorldToTile(pt.x, pt.z);
+              const key = roadTileKey(gx, gz);
+              setRoadTiles((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+            }
+            return;
+          }
+
+          // 2c. If Clicked on EMPTY FLOOR in Placement Mode -> Place new object
           if (sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType) {
             const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
             if (intersects.length > 0) {
@@ -1506,6 +1953,13 @@ export default function Factory3D() {
           // 3. Clicked empty floor in Hand mode -> Deselect
           setSelectedObject(null);
           setSelectedRouteSource(null);
+        } else if (sceneStateRef.current.appMode === 'OPERATION' && e.button === 0 && sceneStateRef.current.robot) {
+          // Click-to-inspect the robot itself in normal view/demo mode
+          sceneStateRef.current.raycaster.setFromCamera(sceneStateRef.current.mouse, camera);
+          const robotHits = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.robot, true);
+          if (robotHits.length > 0) {
+            setRobotPanelOpen(true);
+          }
         }
       }
     };
@@ -1577,12 +2031,146 @@ export default function Factory3D() {
       }
     };
 
+    // --- TOUCH INTERACTION FOR IPAD / TABLETS / PHONES ---
+    let touchStartDist = 0;
+    let touchStartCenter = { x: 0, y: 0 };
+    let isMultiTouch = false;
+
+    const onTouchStart = (e) => {
+      if (e.target !== renderer.domElement) return;
+      if (e.touches.length === 1) {
+        isMultiTouch = false;
+        const touch = e.touches[0];
+        const rect = container.getBoundingClientRect();
+        sceneStateRef.current.mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+        sceneStateRef.current.mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+        sceneStateRef.current.raycaster.setFromCamera(sceneStateRef.current.mouse, camera);
+
+        if (sceneStateRef.current.intro) {
+          sceneStateRef.current.intro.active = false;
+        }
+
+        // Road paint continuous touch
+        if (sceneStateRef.current.appMode === 'SETTING' && sceneStateRef.current.isPlacingMode && sceneStateRef.current.selectedObjectType === 'ROAD_NODE') {
+          const intersects = sceneStateRef.current.raycaster.intersectObject(sceneStateRef.current.floorMesh);
+          if (intersects.length > 0) {
+            const pt = intersects[0].point;
+            const { gx, gz } = roadWorldToTile(pt.x, pt.z);
+            const brushSize = sceneStateRef.current.roadBrushSize || 1;
+            const targetTiles = getBrushTiles(gx, gz, brushSize);
+            const targetKeys = targetTiles.map((t) => t.key);
+            const currentRoads = sceneStateRef.current.roadTiles || [];
+            const isExisting = currentRoads.includes(roadTileKey(gx, gz));
+            const paintMode = isExisting ? 'REMOVE' : 'ADD';
+
+            sceneStateRef.current.isPaintingRoad = true;
+            sceneStateRef.current.roadPaintMode = paintMode;
+
+            setRoadTiles((prev) => {
+              if (paintMode === 'REMOVE') {
+                return prev.filter((k) => !targetKeys.includes(k));
+              } else {
+                return Array.from(new Set([...prev, ...targetKeys]));
+              }
+            });
+            return;
+          }
+        }
+
+        sceneStateRef.current.controls.isDragging = true;
+        sceneStateRef.current.controls.isPanning = false;
+        sceneStateRef.current.controls.dragButton = 0;
+        sceneStateRef.current.controls.mouseDownPos = { x: touch.clientX, y: touch.clientY };
+        sceneStateRef.current.controls.dragDistance = 0;
+        sceneStateRef.current.controls.prevMouse = { x: touch.clientX, y: touch.clientY };
+      } else if (e.touches.length === 2) {
+        isMultiTouch = true;
+        sceneStateRef.current.controls.isDragging = false;
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        touchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        touchStartCenter = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+        if (sceneStateRef.current.intro) {
+          sceneStateRef.current.intro.active = false;
+        }
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches.length === 1 && !isMultiTouch) {
+        const touch = e.touches[0];
+        const fakeMouseEvent = {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          target: e.target
+        };
+        onMouseMove(fakeMouseEvent);
+      } else if (e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const newDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        const newCenter = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+
+        // Pinch Zoom
+        if (touchStartDist > 0) {
+          const pinchDelta = touchStartDist - newDist;
+          spherical.radius = Math.max(8, Math.min(85, spherical.radius + pinchDelta * 0.08));
+          touchStartDist = newDist;
+        }
+
+        // Two-finger Pan
+        const dx = newCenter.x - touchStartCenter.x;
+        const dy = newCenter.y - touchStartCenter.y;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          forward.y = 0;
+          forward.normalize();
+          const right = new THREE.Vector3();
+          right.crossVectors(forward, camera.up).normalize();
+          const panSpeed = spherical.radius * 0.0022;
+          const targetCenter = sceneStateRef.current.controls.targetCenter;
+          targetCenter.addScaledVector(right, -dx * panSpeed);
+          targetCenter.addScaledVector(forward, dy * panSpeed);
+          const maxBoundX = sceneStateRef.current.gridSize.width / 2 + 15;
+          const maxBoundZ = sceneStateRef.current.gridSize.depth / 2 + 15;
+          targetCenter.x = Math.max(-maxBoundX, Math.min(maxBoundX, targetCenter.x));
+          targetCenter.z = Math.max(-maxBoundZ, Math.min(maxBoundZ, targetCenter.z));
+          touchStartCenter = newCenter;
+        }
+      }
+    };
+
+    const onTouchEnd = (e) => {
+      if (isMultiTouch && e.touches.length < 2) {
+        isMultiTouch = false;
+        touchStartDist = 0;
+        return;
+      }
+      if (sceneStateRef.current.controls.isDragging) {
+        const lastPos = sceneStateRef.current.controls.prevMouse || { x: 0, y: 0 };
+        const fakeMouseEvent = {
+          clientX: lastPos.x,
+          clientY: lastPos.y,
+          target: renderer.domElement,
+          button: 0,
+          shiftKey: false
+        };
+        onMouseUp(fakeMouseEvent);
+      }
+    };
+
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-    container.addEventListener('wheel', onWheel);
+    container.addEventListener('wheel', onWheel, { passive: true });
     container.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKeyDown);
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: false });
 
     // --- ANIMATION & CAMERA GLIDE ---
     let animId;
@@ -1590,8 +2178,35 @@ export default function Factory3D() {
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      const rawDelta = clock.getDelta();
+      const speedMult = sceneStateRef.current.speedMultiplier || 1;
+      const delta = Math.min(rawDelta, 0.1) * speedMult;
       const elapsed = clock.getElapsedTime();
+
+      // Animate 3D Floating Success Badges above completed racks
+      if (sceneStateRef.current.floatingBadges && sceneStateRef.current.floatingBadges.length > 0) {
+        const now = performance.now();
+        sceneStateRef.current.floatingBadges = sceneStateRef.current.floatingBadges.filter((badge) => {
+          const age = (now - badge.userData.birthTime) / 1000;
+          if (age > 4.5) {
+            scene.remove(badge);
+            return false;
+          }
+          badge.position.y = badge.userData.baseY + Math.sin(age * 3) * 0.15 + age * 0.35;
+          const spriteChild = badge.children[0];
+          if (spriteChild && spriteChild.material) {
+            if (age > 3.0) {
+              spriteChild.material.opacity = Math.max(0, 1 - (age - 3.0) / 1.5);
+            }
+          }
+          const ringChild = badge.children[1];
+          if (ringChild) {
+            ringChild.scale.set(1 + age * 0.6, 1 + age * 0.6, 1);
+            ringChild.material.opacity = Math.max(0, 0.8 - age * 0.2);
+          }
+          return true;
+        });
+      }
 
       if (sceneStateRef.current.appMode === 'OPERATION' && robot.visible) {
         const workflowRoutes = sceneStateRef.current.workflowRoutes || [];
@@ -1603,21 +2218,37 @@ export default function Factory3D() {
             timer: 0
           };
 
-          const activeRoute = workflowRoutes[wf.routeIdx % workflowRoutes.length];
+          // Filter pending routes that are not yet filled to capacity
+          const pendingRoutes = workflowRoutes.filter((r) => !r.completed);
+          const routePool = pendingRoutes.length > 0 ? pendingRoutes : workflowRoutes;
+          const activeRoute = routePool[wf.routeIdx % routePool.length];
           const carriedBox = sceneStateRef.current.carriedBoxMesh;
 
           if (wf.phase === 'DRIVING_TO_PICKUP') {
-            const targetPos = new THREE.Vector3(activeRoute.fromPos[0] + 1.2, 0.4, activeRoute.fromPos[1]);
+            const finalTarget = new THREE.Vector3(activeRoute.fromPos[0] + 1.2, 0.4, activeRoute.fromPos[1]);
+
+            // Compute the road-following path once per leg (not every frame)
+            if (!wf.legPath || wf.legPhase !== 'DRIVING_TO_PICKUP' || wf.legRouteIdx !== activeRoute.id) {
+              wf.legPath = computeRoadPath(robot.position, finalTarget, sceneStateRef.current.roadTiles);
+              wf.legIndex = 0;
+              wf.legPhase = 'DRIVING_TO_PICKUP';
+              wf.legRouteIdx = activeRoute.id;
+            }
+
+            const targetPos = wf.legPath[wf.legIndex];
             const dir = new THREE.Vector3().subVectors(targetPos, robot.position);
             const dist = dir.length();
 
             if (dist > 0.35) {
               dir.normalize();
-              robot.position.addScaledVector(dir, 3.2 * delta);
+              robot.position.addScaledVector(dir, 3.4 * delta);
               robot.rotation.y = Math.atan2(-dir.z, dir.x);
+            } else if (wf.legIndex < wf.legPath.length - 1) {
+              wf.legIndex += 1;
             } else {
               wf.phase = 'PICKING';
-              wf.timer = 1.3;
+              wf.timer = 1.2;
+              wf.legPath = null;
               setRobotStatus((prev) => ({
                 ...prev,
                 mode: `กำลังหยิบกล่องพัสดุ (${activeRoute.fromName})`,
@@ -1639,17 +2270,29 @@ export default function Factory3D() {
               }));
             }
           } else if (wf.phase === 'DRIVING_TO_RACK') {
-            const targetPos = new THREE.Vector3(activeRoute.toPos[0] + (activeRoute.toPos[0] >= 0 ? -1.8 : 1.8), 0.4, activeRoute.toPos[1]);
+            const finalTarget = new THREE.Vector3(activeRoute.toPos[0] + (activeRoute.toPos[0] >= 0 ? -1.8 : 1.8), 0.4, activeRoute.toPos[1]);
+
+            if (!wf.legPath || wf.legPhase !== 'DRIVING_TO_RACK' || wf.legRouteIdx !== activeRoute.id) {
+              wf.legPath = computeRoadPath(robot.position, finalTarget, sceneStateRef.current.roadTiles);
+              wf.legIndex = 0;
+              wf.legPhase = 'DRIVING_TO_RACK';
+              wf.legRouteIdx = activeRoute.id;
+            }
+
+            const targetPos = wf.legPath[wf.legIndex];
             const dir = new THREE.Vector3().subVectors(targetPos, robot.position);
             const dist = dir.length();
 
             if (dist > 0.35) {
               dir.normalize();
-              robot.position.addScaledVector(dir, 3.2 * delta);
+              robot.position.addScaledVector(dir, 3.4 * delta);
               robot.rotation.y = Math.atan2(-dir.z, dir.x);
+            } else if (wf.legIndex < wf.legPath.length - 1) {
+              wf.legIndex += 1;
             } else {
               wf.phase = 'STORING';
-              wf.timer = 1.3;
+              wf.timer = 1.2;
+              wf.legPath = null;
               setRobotStatus((prev) => ({
                 ...prev,
                 mode: `กำลังนำสินค้าขึ้นจัดเก็บบนชั้น (${activeRoute.toName})...`,
@@ -1663,18 +2306,57 @@ export default function Factory3D() {
             }
             if (wf.timer <= 0) {
               if (carriedBox) carriedBox.visible = false;
+
+              // Find target rack object
+              const allPlaced = sceneStateRef.current.placedObjects || [];
+              const targetObj = allPlaced.find((o) => o.id === activeRoute.toId);
+              const curBoxes = (targetObj?.deliveredBoxes || 0) + 1;
+              const maxBoxes = targetObj?.targetBoxes || 3;
+
               // Deliver box to rack shelf!
               setPlacedObjects((prev) =>
                 prev.map((o) =>
-                  o.id === activeRoute.toId ? { ...o, deliveredBoxes: (o.deliveredBoxes || 0) + 1 } : o
+                  o.id === activeRoute.toId ? { ...o, deliveredBoxes: curBoxes } : o
                 )
               );
-              setRobotStatus((prev) => ({
-                ...prev,
-                mode: `จัดเก็บสินค้าสำเร็จ (+1)`,
-                pickedCount: prev.pickedCount + 1
-              }));
-              wf.routeIdx = (wf.routeIdx + 1) % workflowRoutes.length;
+
+              if (curBoxes >= maxBoxes) {
+                // Shelf is completely filled (100% full!)
+                // 1. Spawn floating success 3D badge above the rack!
+                if (targetObj && sceneStateRef.current.scene) {
+                  const badge = createSuccessFloatingBadge(targetObj.x, (targetObj.height || 5.5) + 1.2, targetObj.z, targetObj.name);
+                  sceneStateRef.current.scene.add(badge);
+                  if (!sceneStateRef.current.floatingBadges) {
+                    sceneStateRef.current.floatingBadges = [];
+                  }
+                  sceneStateRef.current.floatingBadges.push(badge);
+                }
+
+                // 2. Mark route as completed & remove pin marker from shelf
+                setDispatchRoutes((prev) =>
+                  prev.map((r) => (r.id === activeRoute.id ? { ...r, completed: true } : r))
+                );
+
+                setPlacedObjects((prev) =>
+                  prev.map((o) => (o.id === activeRoute.toId ? { ...o, isPinned: false } : o))
+                );
+
+                setRobotStatus((prev) => ({
+                  ...prev,
+                  mode: `✨ จัดเก็บ [${activeRoute.toName}] เต็มความจุสำเร็จ! (${curBoxes}/${maxBoxes})`,
+                  pickedCount: prev.pickedCount + 1
+                }));
+
+                // Advance to the next uncompleted route
+                wf.routeIdx = (wf.routeIdx + 1);
+              } else {
+                setRobotStatus((prev) => ({
+                  ...prev,
+                  mode: `จัดเก็บสินค้าขึ้น [${activeRoute.toName}] (${curBoxes}/${maxBoxes})`,
+                  pickedCount: prev.pickedCount + 1
+                }));
+              }
+
               wf.phase = 'DRIVING_TO_PICKUP';
             }
           }
@@ -1776,6 +2458,10 @@ export default function Factory3D() {
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
+      container.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
       window.removeEventListener('resize', onResize);
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -1904,7 +2590,14 @@ export default function Factory3D() {
     const group = new THREE.Group();
     group.name = 'DISPATCH_ROUTE_LINES';
 
-    dispatchRoutes.forEach((route) => {
+    // In OPERATION mode, only show the 1 currently active route being serviced!
+    // In SETTING mode, show all authored uncompleted routes.
+    const uncompletedRoutes = dispatchRoutes.filter((r) => !r.completed);
+    const routesToRender = appMode === 'OPERATION'
+      ? (uncompletedRoutes.length > 0 ? [uncompletedRoutes[0]] : [])
+      : uncompletedRoutes;
+
+    routesToRender.forEach((route) => {
       const fromObj = placedObjects.find((o) => o.id === route.fromId);
       const toObj = placedObjects.find((o) => o.id === route.toId);
       const fromX = fromObj ? fromObj.x : route.fromPos[0];
@@ -2012,6 +2705,102 @@ export default function Factory3D() {
     sceneStateRef.current.routeLinesGroup = group;
   }, [dispatchRoutes, placedObjects, selectedRouteSource]);
 
+  // ==========================================================
+  // SYNCHRONIZE 3D ROAD NETWORK (the path the AMR actually follows)
+  // ==========================================================
+  useEffect(() => {
+    sceneStateRef.current.roadTiles = roadTiles;
+    sceneStateRef.current.roadBrushSize = roadBrushSize;
+    sceneStateRef.current.roadToolMode = roadToolMode;
+    const scene = sceneStateRef.current.scene;
+    if (!scene) return;
+
+    if (sceneStateRef.current.roadLinesGroup) {
+      scene.remove(sceneStateRef.current.roadLinesGroup);
+      sceneStateRef.current.roadLinesGroup = null;
+    }
+
+    const group = new THREE.Group();
+    group.name = 'ROAD_NETWORK';
+
+    if (roadTiles.length > 0) {
+      // Painted tiles are more visible/editable in SETTING mode, and a subtler
+      // "actual path" overlay while just watching the AMR operate.
+      const isEditing = appMode === 'SETTING';
+      const tileGeo = new THREE.PlaneGeometry(ROAD_TILE_SIZE * 0.94, ROAD_TILE_SIZE * 0.94);
+      const tileMat = new THREE.MeshBasicMaterial({
+        color: 0x16a34a,
+        transparent: true,
+        opacity: isEditing ? 0.42 : 0.22,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+
+      roadTiles.forEach((key) => {
+        const [gx, gz] = key.split(',').map(Number);
+        const world = roadTileToWorld(gx, gz);
+        const tile = new THREE.Mesh(tileGeo, tileMat);
+        tile.rotation.x = -Math.PI / 2;
+        tile.position.set(world.x, 0.045, world.z);
+        group.add(tile);
+      });
+
+      if (isEditing) {
+        const edgeGeo = new THREE.EdgesGeometry(tileGeo);
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x15803d, transparent: true, opacity: 0.5 });
+        roadTiles.forEach((key) => {
+          const [gx, gz] = key.split(',').map(Number);
+          const world = roadTileToWorld(gx, gz);
+          const edge = new THREE.LineSegments(edgeGeo, edgeMat);
+          edge.rotation.x = -Math.PI / 2;
+          edge.position.set(world.x, 0.05, world.z);
+          group.add(edge);
+        });
+      }
+    }
+
+    scene.add(group);
+    sceneStateRef.current.roadLinesGroup = group;
+  }, [roadTiles, appMode, roadBrushSize, roadToolMode]);
+
+  // Quick 1-Click Road Loop Generator around current grid perimeter with cross aisles
+  const handleAutoGenerateRoadLoop = () => {
+    const halfW = Math.floor(gridSize.width / 2) - 4;
+    const halfD = Math.floor(gridSize.depth / 2) - 4;
+    const perimeter = buildLoopRoadTiles([
+      { x: -halfW, z: -halfD },
+      { x: halfW, z: -halfD },
+      { x: halfW, z: halfD },
+      { x: -halfW, z: halfD }
+    ]);
+    const crossAisle = buildLoopRoadTiles([
+      { x: 0, z: -halfD },
+      { x: 0, z: halfD }
+    ]);
+    const allTiles = Array.from(new Set([...roadTiles, ...perimeter, ...crossAisle]));
+    setRoadTiles(allTiles);
+    setRouteNotification(`สร้างเส้นทางถนนอัตโนมัติรอบผังโรงงาน (${allTiles.length} ช่อง) สำเร็จ!`);
+    setTimeout(() => setRouteNotification(null), 3500);
+  };
+
+  // Quick 1-Click Cross Aisles (ทางตัดกากบาทกลางผัง)
+  const handleAutoAddCrossAisles = () => {
+    const halfW = Math.floor(gridSize.width / 2) - 4;
+    const halfD = Math.floor(gridSize.depth / 2) - 4;
+    const crossV = buildLoopRoadTiles([
+      { x: 0, z: -halfD },
+      { x: 0, z: halfD }
+    ]);
+    const crossH = buildLoopRoadTiles([
+      { x: -halfW, z: 0 },
+      { x: halfW, z: 0 }
+    ]);
+    const allTiles = Array.from(new Set([...roadTiles, ...crossV, ...crossH]));
+    setRoadTiles(allTiles);
+    setRouteNotification(`เพิ่มทางตัดกากบาทกลางผัง (+${allTiles.length - roadTiles.length} ช่อง) สำเร็จ!`);
+    setTimeout(() => setRouteNotification(null), 3500);
+  };
+
   // ==========================================
   // HANDLERS FOR OBJECTS & MODE TRANSITIONS
   // ==========================================
@@ -2074,11 +2863,10 @@ export default function Factory3D() {
 
     if (updated.isPinned) {
       const newTargetV3 = new THREE.Vector3(obj.x + 2.0, 0.4, obj.z);
-      sceneStateRef.current.waypoints = [
-        newTargetV3,
-        new THREE.Vector3(0, 0.4, 0),
-        new THREE.Vector3(-obj.x, 0.4, -obj.z)
-      ];
+      const currentPos = sceneStateRef.current.robot
+        ? sceneStateRef.current.robot.position.clone()
+        : new THREE.Vector3(0, 0.4, 0);
+      sceneStateRef.current.waypoints = computeRoadPath(currentPos, newTargetV3, sceneStateRef.current.roadTiles);
       sceneStateRef.current.pathIndex = 0;
 
       setRobotStatus((prev) => ({
@@ -2127,6 +2915,7 @@ export default function Factory3D() {
   // 2. Switch to Blank Setting Mode (Clean floor grid only!)
   const handleEnterSettingMode = () => {
     setPlacedObjects([]);
+    setRoadTiles([]);
     setSelectedObject(null);
     setAppMode('SETTING');
     setIsPlacingMode(false);
@@ -2135,33 +2924,40 @@ export default function Factory3D() {
     setIsDrawerOpen(false);
   };
 
-  // 2. Restore Default Sample Factory
+  // 2. Restore Default Sample Factory (60x58m 16-Rack Master Layout)
   const handleRestoreDemoFactory = () => {
     setPlacedObjects(INITIAL_DEMO_OBJECTS);
+    setRoadTiles(INITIAL_ROAD_TILES);
+    setDispatchRoutes(INITIAL_DISPATCH_ROUTES);
     setSelectedObject(null);
     setAppMode('OPERATION');
     setIsPlacingMode(false);
     setSelectedObjectType(null);
-    setGridSize({ width: 52, depth: 36 });
+    setGridSize({ width: 60, depth: 58 });
     handleResetCameraCenter();
     setIsDrawerOpen(false);
 
     sceneStateRef.current.waypoints = [
-      new THREE.Vector3(-14, 0.4, 0),
-      new THREE.Vector3(0, 0.4, 0),
-      new THREE.Vector3(0, 0.4, 5),
-      new THREE.Vector3(12, 0.4, 5),
-      new THREE.Vector3(12, 0.4, -6),
-      new THREE.Vector3(0, 0.4, -6),
-      new THREE.Vector3(-14, 0.4, -6),
+      new THREE.Vector3(0, 0.4, 20),
+      new THREE.Vector3(-14, 0.4, 12),
+      new THREE.Vector3(-14, 0.4, -12),
+      new THREE.Vector3(0, 0.4, -24),
+      new THREE.Vector3(14, 0.4, -12),
+      new THREE.Vector3(14, 0.4, 12),
     ];
     sceneStateRef.current.pathIndex = 0;
+    sceneStateRef.current.workflowRoutes = INITIAL_DISPATCH_ROUTES;
+    sceneStateRef.current.currentWorkflowState = {
+      routeIdx: 0,
+      phase: 'DRIVING_TO_PICKUP',
+      timer: 0
+    };
 
     setRobotStatus({
-      mode: 'กำลังวิ่งลำเลียงตามรางกลางโรงงาน',
-      target: 'จุดชาร์จ Dock-01',
-      battery: 98,
-      pickedCount: 14
+      mode: 'กำลังไปหยิบกล่องพัสดุ: กองพาเลทรับสินค้าหลัก Pallet-01',
+      target: 'กองพาเลทรับสินค้าหลัก Pallet-01',
+      battery: 100,
+      pickedCount: 0
     });
   };
 
@@ -2185,7 +2981,18 @@ export default function Factory3D() {
       generatedWaypoints.push(new THREE.Vector3(0, 0.4, 0));
     }
 
-    sceneStateRef.current.waypoints = generatedWaypoints;
+    // Route each leg between generated stops along the authored road network
+    // (if any) so the AMR doesn't cut straight through racks between stops.
+    let routedWaypoints = generatedWaypoints;
+    if (roadTiles.length > 0 && generatedWaypoints.length > 1) {
+      routedWaypoints = [generatedWaypoints[0]];
+      for (let i = 1; i < generatedWaypoints.length; i++) {
+        const leg = computeRoadPath(generatedWaypoints[i - 1], generatedWaypoints[i], roadTiles);
+        routedWaypoints.push(...leg);
+      }
+    }
+
+    sceneStateRef.current.waypoints = routedWaypoints;
     sceneStateRef.current.pathIndex = 0;
 
     // Activate Autonomous Pick-and-Place Route Workflow
@@ -2239,6 +3046,9 @@ export default function Factory3D() {
           robotStatus={robotStatus}
           onTriggerIntro={handleTriggerIntro}
           onEditLayout={handleEditCurrentLayout}
+          onOpenDashboard={onOpenDashboard}
+          speedMultiplier={speedMultiplier}
+          setSpeedMultiplier={setSpeedMultiplier}
         />
       )}
 
@@ -2253,52 +3063,57 @@ export default function Factory3D() {
         }}
       />
 
-      {/* 3. SETTING MODE TOP CONTROL BAR (SLEEK MINIMALIST) */}
+      {/* 3. SETTING MODE TOP CONTROL BAR (CLEAN WHITE SAAS THEME) */}
       {appMode === 'SETTING' && (
         <div style={{
           position: 'fixed',
           top: '16px',
           left: '20px',
           right: '20px',
-          background: 'rgba(14, 21, 32, 0.94)',
+          background: 'rgba(255, 255, 255, 0.96)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border: '1px solid #e6e8eb',
           borderRadius: '12px',
-          height: '46px',
+          height: '48px',
           padding: '0 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           zIndex: 850,
-          color: '#fff',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)'
+          color: '#1a1d24',
+          boxShadow: '0 8px 24px rgba(16, 24, 40, 0.08)',
+          whiteSpace: 'nowrap',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          gap: '12px'
         }}>
           {/* Left: Mode Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: '700', color: '#f8fafc' }}>
-              ตั้งค่าผัง
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '0.88rem', fontWeight: '700', color: '#1a1d24', whiteSpace: 'nowrap' }}>
+              ตั้งค่าผังโรงงาน
             </span>
             <span style={{
-              fontSize: '0.62rem',
+              fontSize: '0.64rem',
               fontWeight: '700',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
-              color: '#38bdf8',
-              fontFamily: 'monospace'
+              padding: '2px 7px',
+              borderRadius: '6px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#2563eb',
+              fontFamily: 'monospace',
+              whiteSpace: 'nowrap'
             }}>
               SETTING
             </span>
           </div>
 
           {/* Center: Dimensions Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0, whiteSpace: 'nowrap' }}>
             {/* Width */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: '#38bdf8', display: 'flex' }}><Icons.Width /></span>
-              <span style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.65)' }}>กว้าง:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <span style={{ color: '#2563eb', display: 'flex' }}><Icons.Width /></span>
+              <span style={{ fontSize: '0.74rem', color: '#68707c', fontWeight: '500', whiteSpace: 'nowrap' }}>กว้าง:</span>
               <input
                 type="range"
                 min="24"
@@ -2306,17 +3121,17 @@ export default function Factory3D() {
                 step="4"
                 value={gridSize.width}
                 onChange={(e) => setGridSize((prev) => ({ ...prev, width: parseInt(e.target.value) }))}
-                style={{ width: '80px', accentColor: '#38bdf8', cursor: 'pointer' }}
+                style={{ width: '80px', accentColor: '#2563eb', cursor: 'pointer', flexShrink: 0 }}
               />
-              <span style={{ fontSize: '0.76rem', fontWeight: '600', color: '#38bdf8', minWidth: '30px', fontFamily: 'monospace' }}>
+              <span style={{ fontSize: '0.76rem', fontWeight: '700', color: '#2563eb', minWidth: '32px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                 {gridSize.width}m
               </span>
             </div>
 
             {/* Depth */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: '#00e676', display: 'flex' }}><Icons.Depth /></span>
-              <span style={{ fontSize: '0.74rem', color: 'rgba(255, 255, 255, 0.65)' }}>ยาว:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <span style={{ color: '#16a34a', display: 'flex' }}><Icons.Depth /></span>
+              <span style={{ fontSize: '0.74rem', color: '#68707c', fontWeight: '500', whiteSpace: 'nowrap' }}>ยาว:</span>
               <input
                 type="range"
                 min="18"
@@ -2324,42 +3139,50 @@ export default function Factory3D() {
                 step="4"
                 value={gridSize.depth}
                 onChange={(e) => setGridSize((prev) => ({ ...prev, depth: parseInt(e.target.value) }))}
-                style={{ width: '80px', accentColor: '#00e676', cursor: 'pointer' }}
+                style={{ width: '80px', accentColor: '#16a34a', cursor: 'pointer', flexShrink: 0 }}
               />
-              <span style={{ fontSize: '0.76rem', fontWeight: '600', color: '#00e676', minWidth: '30px', fontFamily: 'monospace' }}>
+              <span style={{ fontSize: '0.76rem', fontWeight: '700', color: '#16a34a', minWidth: '32px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                 {gridSize.depth}m
               </span>
             </div>
 
             {/* Presets */}
-            <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.25)', padding: '2px 4px', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', gap: '4px', background: '#f4f5f6', border: '1px solid #e6e8eb', padding: '2px 4px', borderRadius: '7px', flexShrink: 0, whiteSpace: 'nowrap' }}>
               {[
                 { label: '36×24', w: 36, d: 24 },
                 { label: '52×36', w: 52, d: 36 },
+                { label: '60×58 (ผังหลัก)', w: 60, d: 58 },
                 { label: '68×44', w: 68, d: 44 },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() => setGridSize({ width: preset.w, depth: preset.d })}
-                  style={{
-                    background: gridSize.width === preset.w && gridSize.depth === preset.d ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                    border: 'none',
-                    color: gridSize.width === preset.w && gridSize.depth === preset.d ? '#38bdf8' : 'rgba(255, 255, 255, 0.6)',
-                    borderRadius: '4px',
-                    padding: '3px 6px',
-                    fontSize: '0.7rem',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {preset.label}
-                </button>
-              ))}
+              ].map((preset) => {
+                const isSelected = gridSize.width === preset.w && gridSize.depth === preset.d;
+                return (
+                  <button
+                    key={preset.label}
+                    onClick={() => setGridSize({ width: preset.w, depth: preset.d })}
+                    style={{
+                      background: isSelected ? '#ffffff' : 'transparent',
+                      border: 'none',
+                      boxShadow: isSelected ? '0 1px 3px rgba(16, 24, 40, 0.1)' : 'none',
+                      color: isSelected ? '#2563eb' : '#68707c',
+                      borderRadius: '5px',
+                      padding: '3px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: isSelected ? '700' : '500',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Right: Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' }}>
             {/* Quick Save to History Button */}
             <button
               onClick={() => {
@@ -2370,24 +3193,26 @@ export default function Factory3D() {
               }}
               title="บันทึกผังนี้ลงในประวัติ"
               style={{
-                background: 'rgba(0, 230, 118, 0.15)',
-                border: '1px solid rgba(0, 230, 118, 0.4)',
-                color: '#a7f3d0',
-                borderRadius: '6px',
-                padding: '5px 10px',
+                background: '#effdf5',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
+                borderRadius: '7px',
+                padding: '6px 12px',
                 fontSize: '0.74rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
                 transition: 'all 0.15s'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 230, 118, 0.25)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 230, 118, 0.15)'; }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#dcfce7'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#effdf5'; }}
             >
               <Icons.Save />
-              <span>บันทึกผัง</span>
+              <span style={{ whiteSpace: 'nowrap' }}>บันทึกผัง</span>
             </button>
 
             {/* Delete / Clear Pins Button */}
@@ -2395,119 +3220,163 @@ export default function Factory3D() {
               onClick={handleClearAllPins}
               title="ลบหมุดและ Route ทั้งหมด"
               style={{
-                background: 'rgba(239, 68, 68, 0.12)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#fca5a5',
-                borderRadius: '6px',
-                padding: '5px 10px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
+                borderRadius: '7px',
+                padding: '6px 12px',
                 fontSize: '0.74rem',
                 fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
                 transition: 'all 0.15s'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.22)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'; }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
             >
               <Icons.Trash />
-              <span>ลบหมุด ({placedObjects.filter((o) => o.type === 'PICKUP_PIN' || o.isPinned).length + dispatchRoutes.length})</span>
+              <span style={{ whiteSpace: 'nowrap' }}>ลบหมุด ({placedObjects.filter((o) => o.type === 'PICKUP_PIN' || o.isPinned).length + dispatchRoutes.length})</span>
             </button>
 
             <button
               onClick={handleRestoreDemoFactory}
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: 'rgba(255, 255, 255, 0.8)',
-                borderRadius: '6px',
-                padding: '5px 9px',
+                background: '#f4f5f6',
+                border: '1px solid #e6e8eb',
+                color: '#68707c',
+                borderRadius: '7px',
+                padding: '6px 10px',
                 fontSize: '0.74rem',
+                fontWeight: '500',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition: 'all 0.15s'
               }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#eef0f2'; e.currentTarget.style.color = '#1a1d24'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#f4f5f6'; e.currentTarget.style.color = '#68707c'; }}
             >
               <Icons.Refresh />
-              <span>รีเซ็ต</span>
+              <span style={{ whiteSpace: 'nowrap' }}>รีเซ็ต</span>
             </button>
+
+            {onOpenDashboard && (
+              <button
+                onClick={onOpenDashboard}
+                title="เปิดแดชบอร์ดจัดการ"
+                style={{
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#2563eb',
+                  borderRadius: '7px',
+                  padding: '6px 12px',
+                  fontSize: '0.74rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+              >
+                <span style={{ whiteSpace: 'nowrap' }}>แดชบอร์ด →</span>
+              </button>
+            )}
 
             <button
               onClick={() => setAppMode('OPERATION')}
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: 'rgba(255, 255, 255, 0.75)',
-                borderRadius: '6px',
-                padding: '5px 9px',
+                background: '#f4f5f6',
+                border: '1px solid #e6e8eb',
+                color: '#1a1d24',
+                borderRadius: '7px',
+                padding: '6px 12px',
                 fontSize: '0.74rem',
+                fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition: 'all 0.15s'
               }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#eef0f2'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#f4f5f6'; }}
             >
               <Icons.Close />
-              <span>ออก</span>
+              <span style={{ whiteSpace: 'nowrap' }}>ออก</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Floating Route Linking Guide / Notification Banner */}
+      {/* Floating Route Linking Guide / Notification Banner (Clean White Theme) */}
       {appMode === 'SETTING' && routeNotification && (
         <div style={{
           position: 'fixed',
-          top: '70px',
+          top: '72px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(14, 21, 32, 0.96)',
+          background: 'rgba(255, 255, 255, 0.97)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(0, 230, 118, 0.4)',
+          border: '1px solid #bbf7d0',
           borderRadius: '10px',
-          padding: '7px 16px',
-          color: '#f8fafc',
+          padding: '7px 18px',
+          color: '#15803d',
           fontSize: '0.78rem',
           fontWeight: '600',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+          boxShadow: '0 8px 24px rgba(16, 24, 40, 0.10)',
           zIndex: 860,
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap'
         }}>
-          <span>{routeNotification}</span>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a' }} />
+          <span style={{ whiteSpace: 'nowrap' }}>{routeNotification}</span>
         </div>
       )}
 
-      {/* Floating Quick Delete Badge when Pin is selected */}
+      {/* Floating Quick Delete Badge when Pin is selected (Clean White Theme) */}
       {appMode === 'SETTING' && selectedObject && (selectedObject.type === 'PICKUP_PIN' || selectedObject.isPinned) && (
         <div style={{
           position: 'fixed',
-          top: '70px',
+          top: '72px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(14, 21, 32, 0.96)',
+          background: 'rgba(255, 255, 255, 0.97)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(239, 68, 68, 0.5)',
+          border: '1px solid #fecaca',
           borderRadius: '24px',
-          padding: '5px 12px',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+          padding: '5px 14px',
+          boxShadow: '0 8px 24px rgba(16, 24, 40, 0.10)',
           zIndex: 870,
           display: 'flex',
           alignItems: 'center',
-          gap: '10px'
+          gap: '10px',
+          whiteSpace: 'nowrap'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f1f5f9', fontSize: '0.78rem', fontWeight: '600' }}>
-            <span style={{ color: '#00e676', display: 'flex' }}><Icons.Pin /></span>
-            <span>{selectedObject.name || 'หมุดหยิบ'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1a1d24', fontSize: '0.78rem', fontWeight: '600', whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#16a34a', display: 'flex' }}><Icons.Pin /></span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedObject.name || 'หมุดหยิบ'}</span>
           </div>
           <button
             onClick={() => handleDeletePin(selectedObject.id)}
             style={{
-              background: '#ef4444',
+              background: '#dc2626',
               border: 'none',
               color: '#ffffff',
               borderRadius: '16px',
@@ -2517,22 +3386,26 @@ export default function Factory3D() {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '5px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             <Icons.Trash />
-            <span>ลบหมุด</span>
+            <span style={{ whiteSpace: 'nowrap' }}>ลบหมุด</span>
           </button>
           <button
             onClick={() => setSelectedObject(null)}
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: '#9aa1ab',
               cursor: 'pointer',
               fontSize: '0.74rem',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             <Icons.Close />
@@ -2540,51 +3413,70 @@ export default function Factory3D() {
         </div>
       )}
 
-      {/* 4. CLEAN UNIFIED BOTTOM TOOLBAR DOCK (SETTING MODE) */}
+      {/* 4. CLEAN UNIFIED BOTTOM TOOLBAR DOCK (MATCHING WHITE SAAS THEME) */}
       {appMode === 'SETTING' && (
         <div style={{
           position: 'fixed',
           bottom: '22px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(13, 19, 30, 0.94)',
+          background: 'rgba(255, 255, 255, 0.97)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '12px',
-          boxShadow: '0 12px 35px rgba(0, 0, 0, 0.5)',
-          padding: '4px',
-          height: '44px',
+          border: '1px solid #e6e8eb',
+          borderRadius: '14px',
+          boxShadow: '0 12px 35px rgba(16, 24, 40, 0.12)',
+          padding: '5px 8px',
+          height: '48px',
           display: 'flex',
           alignItems: 'center',
-          gap: '3px',
-          zIndex: 850
+          gap: '5px',
+          zIndex: 850,
+          whiteSpace: 'nowrap',
+          flexWrap: 'nowrap',
+          maxWidth: 'calc(100vw - 32px)',
+          overflowX: 'auto',
+          color: '#1a1d24'
         }}>
           {/* A. Hand / Orbit / Pan Tool */}
           <button
             onClick={() => handleToggleTool(null)}
             title="คลิกซ้ายลาก: หมุนมุมกล้อง | คลิกขวาหรือ Shift+ลาก: เลื่อนมุมมอง | WASD: เลื่อนกล้อง"
             style={{
-              background: !isPlacingMode ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-              border: !isPlacingMode ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
-              color: !isPlacingMode ? '#38bdf8' : '#94a3b8',
+              background: !isPlacingMode ? '#eff6ff' : 'transparent',
+              border: !isPlacingMode ? '1px solid #bfdbfe' : '1px solid transparent',
+              color: !isPlacingMode ? '#2563eb' : '#68707c',
               borderRadius: '8px',
-              height: '34px',
-              padding: '0 10px',
-              fontSize: '0.76rem',
-              fontWeight: '500',
+              height: '36px',
+              padding: '0 12px',
+              fontSize: '0.78rem',
+              fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'all 0.12s'
+              transition: 'all 0.12s',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            onMouseOver={(e) => {
+              if (isPlacingMode) {
+                e.currentTarget.style.background = '#f4f5f6';
+                e.currentTarget.style.color = '#1a1d24';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (isPlacingMode) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#68707c';
+              }
             }}
           >
             <Icons.Pan />
-            <span>มุมมอง</span>
+            <span style={{ whiteSpace: 'nowrap' }}>มุมมอง</span>
           </button>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255, 255, 255, 0.1)' }} />
+          <div style={{ width: '1px', height: '22px', background: '#e6e8eb', flexShrink: 0 }} />
 
           {/* B. Core Warehouse Placement & Delete Pin Buttons */}
           {[
@@ -2592,6 +3484,7 @@ export default function Factory3D() {
             { id: 'PARCEL_BOX', label: 'พัสดุ', icon: <Icons.Parcel /> },
             { id: 'CHARGING_STATION', label: 'จุดชาร์จ', icon: <Icons.Charging /> },
             { id: 'PICKUP_PIN', label: 'หมุดหยิบ', icon: <Icons.Pin /> },
+            { id: 'ROAD_NODE', label: 'ถนน (ลากวาดได้)', icon: <Icons.Road /> },
             { id: 'DELETE_PIN', label: 'ลบหมุด', icon: <Icons.Trash /> },
           ].map((t) => {
             const isSelected = selectedObjectType === t.id && isPlacingMode;
@@ -2604,118 +3497,262 @@ export default function Factory3D() {
                   if (t.id === 'DELETE_PIN' && selectedObjectType !== 'DELETE_PIN') {
                     setRouteNotification('โหมดลบหมุด: คลิกที่หมุดในผังเพื่อลบออกทันที');
                   }
+                  if (t.id === 'ROAD_NODE') {
+                    setIsRoadPanelOpen(true);
+                    if (selectedObjectType !== 'ROAD_NODE') {
+                      setRouteNotification('โหมดวาดถนน: ปรับขนาดหัวแปรงและเลือกโหมดวาด/ลบได้จากแผงเครื่องมือ');
+                      setTimeout(() => setRouteNotification(null), 4000);
+                    }
+                  }
                 }}
                 style={{
                   background: isSelected
-                    ? isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0, 230, 118, 0.18)'
+                    ? isDelete ? '#fef2f2' : '#effdf5'
                     : 'transparent',
                   border: isSelected
-                    ? isDelete ? '1px solid #ef4444' : '1px solid rgba(0, 230, 118, 0.45)'
+                    ? isDelete ? '1px solid #fecaca' : '1px solid #86efac'
                     : '1px solid transparent',
                   color: isSelected
-                    ? isDelete ? '#fca5a5' : '#a7f3d0'
-                    : '#94a3b8',
+                    ? isDelete ? '#dc2626' : '#15803d'
+                    : '#68707c',
                   borderRadius: '8px',
-                  height: '34px',
-                  padding: '0 10px',
-                  fontSize: '0.76rem',
-                  fontWeight: '500',
+                  height: '36px',
+                  padding: '0 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: '600',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
-                  transition: 'all 0.12s'
+                  gap: '6px',
+                  transition: 'all 0.12s',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
                 }}
                 onMouseOver={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.color = '#f1f5f9';
+                    e.currentTarget.style.background = '#f4f5f6';
+                    e.currentTarget.style.color = '#1a1d24';
                   }
                 }}
                 onMouseOut={(e) => {
                   if (!isSelected) {
                     e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#94a3b8';
+                    e.currentTarget.style.color = '#68707c';
                   }
                 }}
               >
-                <span>{t.icon}</span>
-                <span>{t.label}</span>
+                <span style={{ display: 'flex' }}>{t.icon}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>{t.label}</span>
               </button>
             );
           })}
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255, 255, 255, 0.1)' }} />
+          {/* Quick Auto-Loop Road Generator */}
+          <button
+            onClick={handleAutoGenerateRoadLoop}
+            title="สร้างเส้นทางถนนอัตโนมัติรอบผังโรงงาน"
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #dbeafe',
+              color: '#2563eb',
+              borderRadius: '8px',
+              height: '36px',
+              padding: '0 12px',
+              fontSize: '0.78rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.12s',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+          >
+            <Icons.Rotate />
+            <span style={{ whiteSpace: 'nowrap' }}>วาดรอบผัง (Auto Loop)</span>
+          </button>
+
+          {roadTiles.length > 0 && (
+            <button
+              onClick={() => {
+                setRoadTiles([]);
+                setRouteNotification('ล้างเส้นทางถนนทั้งหมดแล้ว');
+                setTimeout(() => setRouteNotification(null), 2000);
+              }}
+              title="ล้างช่องถนนทั้งหมด"
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                color: '#dc2626',
+                borderRadius: '8px',
+                height: '36px',
+                padding: '0 12px',
+                fontSize: '0.78rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.12s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              <Icons.Trash />
+              <span style={{ whiteSpace: 'nowrap' }}>ล้างถนน ({roadTiles.length})</span>
+            </button>
+          )}
+
+          <div style={{ width: '1px', height: '22px', background: '#e6e8eb', flexShrink: 0 }} />
 
           {/* C. Save & Launch AMR Button */}
           <button
             onClick={handleStartRobotOperation}
             style={{
-              background: '#00e676',
-              color: '#05080c',
+              background: '#16a34a',
+              color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
-              height: '34px',
-              padding: '0 12px',
-              fontSize: '0.78rem',
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '0.8rem',
               fontWeight: '700',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              boxShadow: '0 2px 10px rgba(22, 163, 74, 0.28)'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = '#22c55e';
+              e.currentTarget.style.background = '#15803d';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = '#00e676';
+              e.currentTarget.style.background = '#16a34a';
             }}
           >
             <Icons.Play />
-            <span>บันทึก & เริ่มงาน</span>
+            <span style={{ whiteSpace: 'nowrap' }}>บันทึก & เริ่มงาน</span>
           </button>
         </div>
       )}
 
-      {/* 5. FLOATING CAMERA PAN CONTROLS & SHORTCUT HINT (BOTTOM RIGHT) */}
+      {/* 4.1. FLOATING ROAD BRUSH SIZE CONTROLLER (CLEAN MINIMAL CARD) */}
+      {appMode === 'SETTING' && isPlacingMode && selectedObjectType === 'ROAD_NODE' && (
+        <div style={{
+          position: 'fixed',
+          bottom: '80px',
+          left: '20px',
+          width: '280px',
+          background: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid #e6e8eb',
+          borderRadius: '14px',
+          boxShadow: '0 10px 30px rgba(16, 24, 40, 0.12)',
+          padding: '12px 14px',
+          zIndex: 870,
+          color: '#1a1d24',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          animation: 'fadeIn 0.15s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: '600', color: '#475569' }}>ขนาดหัวแปรง / กริดถนน:</span>
+            <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#2563eb', fontFamily: 'monospace' }}>
+              {roadBrushSize}×{roadBrushSize} ช่อง ({roadBrushSize * 2}m)
+            </span>
+          </div>
+
+          <input
+            type="range"
+            min="1"
+            max="4"
+            step="1"
+            value={roadBrushSize}
+            onChange={(e) => setRoadBrushSize(parseInt(e.target.value))}
+            style={{ width: '100%', accentColor: '#2563eb', cursor: 'pointer', margin: '2px 0' }}
+          />
+
+          <div style={{ display: 'flex', gap: '4px', justifyContent: 'space-between' }}>
+            {[
+              { size: 1, label: '1 (2m)' },
+              { size: 2, label: '2×2 (4m)' },
+              { size: 3, label: '3×3 (6m)' },
+              { size: 4, label: '4×4 (8m)' },
+            ].map((p) => (
+              <button
+                key={p.size}
+                onClick={() => setRoadBrushSize(p.size)}
+                style={{
+                  flex: 1,
+                  background: roadBrushSize === p.size ? '#2563eb' : '#ffffff',
+                  border: roadBrushSize === p.size ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                  color: roadBrushSize === p.size ? '#ffffff' : '#64748b',
+                  borderRadius: '6px',
+                  padding: '5px 0',
+                  fontSize: '0.68rem',
+                  fontWeight: roadBrushSize === p.size ? '700' : '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.12s',
+                  boxShadow: roadBrushSize === p.size ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. FLOATING CAMERA PAN CONTROLS & SHORTCUT HINT (MATCHING WHITE THEME) */}
       <div style={{
         position: 'fixed',
         bottom: '22px',
         right: '20px',
-        background: 'rgba(14, 21, 32, 0.92)',
+        background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(15px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid #e6e8eb',
         borderRadius: '8px',
-        padding: '5px 8px',
+        padding: '5px 9px',
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
         zIndex: 800,
-        color: 'rgba(255, 255, 255, 0.55)',
-        fontSize: '0.67rem',
-        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)'
+        color: '#68707c',
+        fontSize: '0.68rem',
+        boxShadow: '0 6px 20px rgba(16, 24, 40, 0.08)'
       }}>
         <button
           onClick={handleResetCameraCenter}
           title="รีเซ็ตมุมมองกล้องกลับตรงกลาง"
           style={{
-            background: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#38bdf8',
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            color: '#2563eb',
             borderRadius: '5px',
-            padding: '2px 6px',
-            fontSize: '0.67rem',
+            padding: '3px 7px',
+            fontSize: '0.68rem',
+            fontWeight: '600',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px'
+            gap: '4px',
+            whiteSpace: 'nowrap'
           }}
         >
           <Icons.CenterFocus />
           <span>รีเซ็ตมุมมอง</span>
         </button>
-        <span style={{ opacity: 0.75 }}>
+        <span style={{ opacity: 0.85, whiteSpace: 'nowrap' }}>
           {appMode === 'SETTING' ? 'WASD / ลาก: เลื่อน | R: หมุน 90° | Del: ลบ' : 'WASD / ลาก: เลื่อน'}
         </span>
       </div>
@@ -2747,6 +3784,9 @@ export default function Factory3D() {
         onDeleteSavedLayout={handleDeleteSavedLayout}
         currentGridSize={gridSize}
         currentPlacedObjectsCount={placedObjects.length}
+        currentObjects={placedObjects}
+        currentRoutes={dispatchRoutes}
+        currentRoadTiles={roadTiles}
       />
 
       {/* 7. OBJECT INSPECTOR (ONLY ACTIVE IN SETTING MODE) */}
@@ -2757,6 +3797,14 @@ export default function Factory3D() {
           onDeleteObject={handleDeleteObject}
           onPinTargetForRobot={handlePinTargetForRobot}
           onClose={() => setSelectedObject(null)}
+        />
+      )}
+
+      {/* 8. ROBOT CLICK-TO-INSPECT PANEL (OPERATION MODE ONLY) */}
+      {appMode === 'OPERATION' && robotPanelOpen && (
+        <RobotInfoPanel
+          robotStatus={robotStatus}
+          onClose={() => setRobotPanelOpen(false)}
         />
       )}
     </div>

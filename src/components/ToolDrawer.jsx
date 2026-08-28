@@ -157,8 +157,11 @@ export default function ToolDrawer({
   onSaveCurrentLayout,
   onLoadSavedLayout,
   onDeleteSavedLayout,
-  currentGridSize = { width: 52, depth: 36 },
-  currentPlacedObjectsCount = 0
+  currentGridSize = { width: 60, depth: 58 },
+  currentPlacedObjectsCount = 0,
+  currentObjects = [],
+  currentRoutes = [],
+  currentRoadTiles = [],
 }) {
   const [drawerTab, setDrawerTab] = React.useState('TOOLS'); // 'TOOLS' | 'HISTORY'
   const [newLayoutName, setNewLayoutName] = React.useState('');
@@ -173,9 +176,45 @@ export default function ToolDrawer({
     setIsSaving(false);
   };
 
+  const handleExportJSON = () => {
+    const payload = {
+      name: `ผังโรงงาน (${currentGridSize.width}×${currentGridSize.depth}m)`,
+      gridSize: currentGridSize,
+      objects: currentObjects,
+      routes: currentRoutes,
+      roadTiles: currentRoadTiles,
+      exportedAt: new Date().toISOString()
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      alert('คัดลอกข้อมูลผัง (JSON) ลงในคลิปบอร์ดแล้ว! สามารถนำไปวางหรือแชร์ให้เครื่องอื่นได้ทันที');
+    }).catch(() => {
+      prompt('คัดลอก JSON ด้านล่างนี้:', jsonStr);
+    });
+  };
+
+  const handleImportJSON = () => {
+    const input = prompt('กรุณาวางโค้ด JSON ของผังที่ต้องการนำเข้า:');
+    if (!input) return;
+    try {
+      const parsed = JSON.parse(input.trim());
+      if (parsed.objects && Array.isArray(parsed.objects)) {
+        if (onLoadSavedLayout) {
+          onLoadSavedLayout(parsed);
+          alert(`นำเข้าผัง "${parsed.name || 'ผังที่นำเข้า'}" เรียบร้อยแล้ว!`);
+          setIsOpen(false);
+        }
+      } else {
+        alert('รูปแบบ JSON ไม่ถูกต้อง');
+      }
+    } catch {
+      alert('ไม่สามารถอ่าน JSON ได้ กรุณาตรวจสอบความถูกต้อง');
+    }
+  };
+
   return (
     <>
-      {/* MINIMALIST GLASSMORPHIC DRAWER TAB */}
+      {/* MINIMALIST LIGHT DRAWER TAB */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -184,29 +223,30 @@ export default function ToolDrawer({
           right: isOpen ? '350px' : '0px',
           transform: 'translateY(-50%)',
           zIndex: 1000,
-          background: 'rgba(14, 21, 32, 0.94)',
+          background: 'rgba(255, 255, 255, 0.96)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          border: '1px solid #e6e8eb',
           borderRight: 'none',
           borderRadius: '12px 0 0 12px',
           padding: '12px 9px',
-          color: '#ffffff',
+          color: '#1a1d24',
           cursor: 'pointer',
-          boxShadow: '-4px 8px 24px rgba(0, 0, 0, 0.4)',
+          boxShadow: '-4px 8px 24px rgba(16,24,40,.10)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: '8px',
           transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+          fontFamily: "'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif",
         }}
         onMouseOver={(e) => {
-          e.currentTarget.style.background = 'rgba(26, 36, 52, 0.98)';
-          e.currentTarget.style.color = '#38bdf8';
+          e.currentTarget.style.background = '#f4f5f6';
+          e.currentTarget.style.color = '#16a34a';
         }}
         onMouseOut={(e) => {
-          e.currentTarget.style.background = 'rgba(14, 21, 32, 0.94)';
-          e.currentTarget.style.color = '#ffffff';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.96)';
+          e.currentTarget.style.color = '#1a1d24';
         }}
       >
         <span style={{
@@ -224,13 +264,13 @@ export default function ToolDrawer({
           fontSize: '0.72rem',
           letterSpacing: '0.08em',
           fontWeight: '500',
-          opacity: 0.9
+          opacity: 0.85
         }}>
           เครื่องมือ & ประวัติ
         </span>
       </button>
 
-      {/* MINIMALIST FROSTED GLASS DRAWER */}
+      {/* MINIMALIST LIGHT FROSTED GLASS DRAWER */}
       <div
         style={{
           position: 'fixed',
@@ -238,220 +278,271 @@ export default function ToolDrawer({
           right: 0,
           width: '350px',
           height: '100vh',
-          background: 'rgba(14, 21, 32, 0.95)',
+          background: 'rgba(255, 255, 255, 0.97)',
           backdropFilter: 'blur(25px)',
           WebkitBackdropFilter: 'blur(25px)',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '-12px 0 40px rgba(0, 0, 0, 0.5)',
+          borderLeft: '1px solid #e6e8eb',
+          boxShadow: '-12px 0 40px rgba(16,24,40,.08)',
           zIndex: 999,
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
           display: 'flex',
           flexDirection: 'column',
-          overflowY: 'auto',
-          padding: '20px 16px',
-          gap: '14px',
-          color: '#ffffff'
+          fontFamily: "'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif",
+          color: '#1a1d24',
+          pointerEvents: isOpen ? 'auto' : 'none',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px' }}>
-          <div>
-            <h2 style={{ fontSize: '1rem', fontWeight: '700', letterSpacing: '0.02em', margin: 0, color: '#f8fafc' }}>
-              ศูนย์ควบคุม
-            </h2>
-            <span style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.45)' }}>
-              ECO-VISION Studio
+        {/* DRAWER HEADER */}
+        <div style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid #e6e8eb',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: '#ffffff',
+          flexShrink: 0
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1a1d24' }}>
+              แผงควบคุม & เครื่องมือ
             </span>
           </div>
 
           <button
             onClick={() => setIsOpen(false)}
             style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: 'rgba(255, 255, 255, 0.6)',
-              borderRadius: '6px',
-              width: '26px',
-              height: '26px',
+              background: '#f4f5f6',
+              border: '1px solid #e6e8eb',
+              color: '#68707c',
+              borderRadius: '7px',
+              width: '28px',
+              height: '28px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'all 0.15s'
             }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#eef0f2'; e.currentTarget.style.color = '#1a1d24'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = '#f4f5f6'; e.currentTarget.style.color = '#68707c'; }}
           >
             <Icons.Close />
           </button>
         </div>
 
-        {/* PRIMARY DRAWER TABS: [ ควบคุม | ประวัติผัง ] */}
+        {/* DRAWER TAB TOGGLE */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          background: 'rgba(0, 0, 0, 0.35)',
-          padding: '3px',
-          borderRadius: '8px',
-          gap: '3px'
+          padding: '8px 16px',
+          borderBottom: '1px solid #e6e8eb',
+          display: 'flex',
+          gap: '6px',
+          background: '#f8fafc',
+          flexShrink: 0
         }}>
           <button
             onClick={() => setDrawerTab('TOOLS')}
             style={{
-              background: drawerTab === 'TOOLS' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
-              border: drawerTab === 'TOOLS' ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid transparent',
-              color: drawerTab === 'TOOLS' ? '#38bdf8' : 'rgba(255, 255, 255, 0.6)',
-              borderRadius: '6px',
+              flex: 1,
+              background: drawerTab === 'TOOLS' ? '#ffffff' : 'transparent',
+              border: drawerTab === 'TOOLS' ? '1px solid #e2e8f0' : 'none',
+              boxShadow: drawerTab === 'TOOLS' ? '0 1px 3px rgba(16,24,40,0.06)' : 'none',
+              color: drawerTab === 'TOOLS' ? '#2563eb' : '#64748b',
+              borderRadius: '7px',
               padding: '6px 0',
               fontSize: '0.76rem',
-              fontWeight: drawerTab === 'TOOLS' ? '600' : '400',
+              fontWeight: drawerTab === 'TOOLS' ? '700' : '500',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              fontFamily: 'inherit'
             }}
           >
             <Icons.Wrench />
-            <span>ควบคุม</span>
+            <span>เครื่องมือ</span>
           </button>
 
           <button
             onClick={() => setDrawerTab('HISTORY')}
             style={{
-              background: drawerTab === 'HISTORY' ? 'rgba(0, 230, 118, 0.18)' : 'transparent',
-              border: drawerTab === 'HISTORY' ? '1px solid rgba(0, 230, 118, 0.35)' : '1px solid transparent',
-              color: drawerTab === 'HISTORY' ? '#4ade80' : 'rgba(255, 255, 255, 0.6)',
-              borderRadius: '6px',
+              flex: 1,
+              background: drawerTab === 'HISTORY' ? '#ffffff' : 'transparent',
+              border: drawerTab === 'HISTORY' ? '1px solid #e2e8f0' : 'none',
+              boxShadow: drawerTab === 'HISTORY' ? '0 1px 3px rgba(16,24,40,0.06)' : 'none',
+              color: drawerTab === 'HISTORY' ? '#16a34a' : '#64748b',
+              borderRadius: '7px',
               padding: '6px 0',
               fontSize: '0.76rem',
-              fontWeight: drawerTab === 'HISTORY' ? '600' : '400',
+              fontWeight: drawerTab === 'HISTORY' ? '700' : '500',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              fontFamily: 'inherit'
             }}
           >
             <Icons.History />
-            <span>ประวัติผัง</span>
-            <span style={{
-              background: drawerTab === 'HISTORY' ? '#00e676' : 'rgba(255, 255, 255, 0.15)',
-              color: drawerTab === 'HISTORY' ? '#000000' : '#ffffff',
-              borderRadius: '8px',
-              padding: '1px 5px',
-              fontSize: '0.62rem',
-              fontWeight: 'bold'
-            }}>
-              {savedLayouts.length}
-            </span>
+            <span>ประวัติ & บันทึก ({savedLayouts.length})</span>
           </button>
         </div>
 
-        {/* TAB 1: HISTORY */}
-        {drawerTab === 'HISTORY' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Quick Save Current Layout Card */}
-            <div style={{
-              background: 'rgba(0, 230, 118, 0.08)',
-              border: '1px solid rgba(0, 230, 118, 0.25)',
-              borderRadius: '10px',
-              padding: '10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', fontWeight: '600', color: '#4ade80' }}>
-                  <Icons.Save />
-                  <span>บันทึกผังปัจจุบัน</span>
+        {/* DRAWER CONTENT */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* TAB 1: HISTORY */}
+          {drawerTab === 'HISTORY' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Quick Save Current Layout Card */}
+              <div style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '10px',
+                padding: '10px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', fontWeight: '600', color: '#15803d', whiteSpace: 'nowrap' }}>
+                    <Icons.Save />
+                    <span style={{ whiteSpace: 'nowrap' }}>บันทึกผังปัจจุบัน</span>
+                  </div>
+                  <span style={{ fontSize: '0.66rem', color: '#68707c' }}>
+                    {currentPlacedObjectsCount} วัตถุ ({currentGridSize.width}×{currentGridSize.depth}m)
+                  </span>
                 </div>
-                <span style={{ fontSize: '0.66rem', color: 'rgba(255, 255, 255, 0.5)' }}>
-                  {currentPlacedObjectsCount} วัตถุ ({currentGridSize.width}×{currentGridSize.depth}m)
-                </span>
+
+                {!isSaving ? (
+                  <button
+                    onClick={() => setIsSaving(true)}
+                    style={{
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '7px 10px',
+                      fontSize: '0.76rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Icons.Plus />
+                    <span>บันทึกผังนี้</span>
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <input
+                      type="text"
+                      placeholder={`ตั้งชื่อผัง เช่น ผังคลังโซน ${savedLayouts.length + 1}...`}
+                      value={newLayoutName}
+                      onChange={(e) => setNewLayoutName(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #86efac',
+                        borderRadius: '5px',
+                        padding: '5px 8px',
+                        fontSize: '0.76rem',
+                        color: '#1a1d24',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <button
+                        onClick={handleSave}
+                        style={{
+                          flex: 1,
+                          background: '#16a34a',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '5px',
+                          fontSize: '0.72rem',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ยืนยัน
+                      </button>
+                      <button
+                        onClick={() => setIsSaving(false)}
+                        style={{
+                          background: '#f4f5f6',
+                          color: '#1a1d24',
+                          border: '1px solid #e6e8eb',
+                          borderRadius: '5px',
+                          padding: '5px 8px',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {!isSaving ? (
+              {/* Export / Import JSON & Quick Master Layout Loader */}
+              <div style={{ display: 'flex', gap: '6px' }}>
                 <button
-                  onClick={() => setIsSaving(true)}
+                  onClick={handleExportJSON}
+                  title="คัดลอกข้อมูลผังเป็น JSON เพื่อนำไปแชร์ให้เครื่องอื่น"
                   style={{
-                    background: '#00e676',
-                    color: '#000000',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '7px 10px',
-                    fontSize: '0.76rem',
-                    fontWeight: '700',
+                    flex: 1,
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#2563eb',
+                    borderRadius: '7px',
+                    padding: '6px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s'
+                    gap: '4px'
                   }}
                 >
-                  <Icons.Plus />
-                  <span>บันทึกผังนี้</span>
+                  <span>📋 คัดลอก JSON ผัง</span>
                 </button>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <input
-                    type="text"
-                    placeholder={`ตั้งชื่อผัง เช่น ผังคลังโซน ${savedLayouts.length + 1}...`}
-                    value={newLayoutName}
-                    onChange={(e) => setNewLayoutName(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.4)',
-                      border: '1px solid rgba(0, 230, 118, 0.5)',
-                      borderRadius: '5px',
-                      padding: '5px 8px',
-                      fontSize: '0.76rem',
-                      color: '#ffffff',
-                      outline: 'none'
-                    }}
-                  />
-                  <div style={{ display: 'flex', gap: '5px' }}>
-                    <button
-                      onClick={handleSave}
-                      style={{
-                        flex: 1,
-                        background: '#00e676',
-                        color: '#000',
-                        border: 'none',
-                        borderRadius: '5px',
-                        padding: '5px',
-                        fontSize: '0.72rem',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ยืนยัน
-                    </button>
-                    <button
-                      onClick={() => setIsSaving(false)}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        padding: '5px 8px',
-                        fontSize: '0.72rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ยกเลิก
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                <button
+                  onClick={handleImportJSON}
+                  title="วางโค้ด JSON เพื่อโหลดผังจากเครื่องอื่น"
+                  style={{
+                    flex: 1,
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#475569',
+                    borderRadius: '7px',
+                    padding: '6px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>📥 นำเข้า JSON</span>
+                </button>
+              </div>
 
             {/* List of Saved Layout Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'rgba(255, 255, 255, 0.5)' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: '600', color: '#68707c' }}>
                 ผังที่บันทึกไว้ ({savedLayouts.length})
               </span>
 
@@ -459,10 +550,10 @@ export default function ToolDrawer({
                 <div style={{
                   padding: '20px 14px',
                   textAlign: 'center',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px dashed rgba(255, 255, 255, 0.08)',
+                  background: '#fafbfb',
+                  border: '1px dashed #e6e8eb',
                   borderRadius: '8px',
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: '#9aa1ab',
                   fontSize: '0.74rem'
                 }}>
                   ยังไม่มีผังที่บันทึกไว้
@@ -477,8 +568,8 @@ export default function ToolDrawer({
                     <div
                       key={layout.id || idx}
                       style={{
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: '#fafbfb',
+                        border: '1px solid #e6e8eb',
                         borderRadius: '8px',
                         padding: '10px 12px',
                         display: 'flex',
@@ -486,24 +577,24 @@ export default function ToolDrawer({
                         gap: '6px',
                         transition: 'all 0.15s'
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; }}
+                      onMouseOver={(e) => { e.currentTarget.style.borderColor = '#93c5fd'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.borderColor = '#e6e8eb'; }}
                     >
                       {/* Top: Title & Date */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: '600', color: '#f1f5f9' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: '600', color: '#1a1d24' }}>
                             {layout.name}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.64rem', color: 'rgba(255, 255, 255, 0.45)', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.64rem', color: '#9aa1ab', marginTop: '2px' }}>
                             <Icons.Clock />
                             <span>{layout.savedAt || 'บันทึกเมื่อสักครู่'}</span>
                           </div>
                         </div>
                         <span style={{
-                          background: 'rgba(56, 189, 248, 0.12)',
-                          border: '1px solid rgba(56, 189, 248, 0.25)',
-                          color: '#38bdf8',
+                          background: '#eff6ff',
+                          border: '1px solid #bfdbfe',
+                          color: '#2563eb',
                           borderRadius: '4px',
                           padding: '1px 5px',
                           fontSize: '0.66rem',
@@ -514,15 +605,15 @@ export default function ToolDrawer({
                       </div>
 
                       {/* Middle: Object Badges */}
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', fontSize: '0.66rem', color: 'rgba(255, 255, 255, 0.65)' }}>
-                        <span style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', fontSize: '0.66rem', color: '#68707c' }}>
+                        <span style={{ background: '#f4f5f6', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <Icons.Box /> {rackCount} ชั้นวาง
                         </span>
-                        <span style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span style={{ background: '#f4f5f6', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <Icons.Box /> {boxCount} กล่อง
                         </span>
                         {routeCount > 0 && (
-                          <span style={{ background: 'rgba(0, 230, 118, 0.1)', color: '#4ade80', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 5px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                             <Icons.Pin /> {routeCount} Route
                           </span>
                         )}
@@ -537,9 +628,9 @@ export default function ToolDrawer({
                           }}
                           style={{
                             flex: 1,
-                            background: 'rgba(0, 230, 118, 0.15)',
-                            border: '1px solid rgba(0, 230, 118, 0.35)',
-                            color: '#a7f3d0',
+                            background: '#dcfce7',
+                            border: '1px solid #86efac',
+                            color: '#15803d',
                             borderRadius: '5px',
                             padding: '5px 8px',
                             fontSize: '0.72rem',
@@ -551,8 +642,8 @@ export default function ToolDrawer({
                             gap: '4px',
                             transition: 'all 0.15s'
                           }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 230, 118, 0.25)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 230, 118, 0.15)'; }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = '#bbf7d0'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = '#dcfce7'; }}
                         >
                           <Icons.Play />
                           <span>โหลดผัง</span>
@@ -566,9 +657,9 @@ export default function ToolDrawer({
                           }}
                           title="ลบผัง"
                           style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.25)',
-                            color: '#fca5a5',
+                            background: '#fee2e2',
+                            border: '1px solid #fecaca',
+                            color: '#dc2626',
                             borderRadius: '5px',
                             padding: '5px 7px',
                             fontSize: '0.7rem',
@@ -577,8 +668,8 @@ export default function ToolDrawer({
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = '#fecaca'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
                         >
                           <Icons.Trash />
                         </button>
@@ -596,7 +687,7 @@ export default function ToolDrawer({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {/* SECTION 1: FACTORY LAYOUT BUILDER & PRESETS */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#38bdf8', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#2563eb', letterSpacing: '0.04em' }}>
                 จัดการผังโรงงาน
               </span>
 
@@ -608,9 +699,9 @@ export default function ToolDrawer({
                     setIsOpen(false);
                   }}
                   style={{
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                    color: '#ffffff',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#1a1d24',
                     borderRadius: '8px',
                     padding: '9px 12px',
                     fontSize: '0.8rem',
@@ -619,27 +710,28 @@ export default function ToolDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    fontFamily: 'inherit',
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.22)';
+                    e.currentTarget.style.background = '#dbeafe';
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                    e.currentTarget.style.background = '#eff6ff';
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: '#38bdf8' }}>
+                    <span style={{ color: '#2563eb' }}>
                       <Icons.Edit />
                     </span>
                     <div style={{ textAlign: 'left' }}>
                       <div>ปรับแต่งผังปัจจุบัน</div>
-                      <div style={{ fontSize: '0.64rem', color: 'rgba(255, 255, 255, 0.55)', fontWeight: '400' }}>
+                      <div style={{ fontSize: '0.64rem', color: '#68707c', fontWeight: '400' }}>
                         แก้ไขวัตถุในผังเดิม
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.85rem', color: '#38bdf8' }}>→</span>
+                  <span style={{ fontSize: '0.85rem', color: '#2563eb' }}>→</span>
                 </button>
 
                 {/* 2. New Blank Layout */}
@@ -649,9 +741,9 @@ export default function ToolDrawer({
                     setIsOpen(false);
                   }}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: 'rgba(255, 255, 255, 0.85)',
+                    background: '#fafbfb',
+                    border: '1px solid #e6e8eb',
+                    color: '#1a1d24',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     fontSize: '0.78rem',
@@ -660,18 +752,19 @@ export default function ToolDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    fontFamily: 'inherit',
                   }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'; }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = '#f4f5f6'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#fafbfb'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                    <span style={{ color: '#68707c' }}>
                       <Icons.Plus />
                     </span>
                     <div style={{ textAlign: 'left' }}>
                       <div>สร้างผังใหม่</div>
-                      <div style={{ fontSize: '0.64rem', color: 'rgba(255, 255, 255, 0.45)' }}>
+                      <div style={{ fontSize: '0.64rem', color: '#9aa1ab' }}>
                         เคลียร์พื้น Grid ว่าง
                       </div>
                     </div>
@@ -685,9 +778,9 @@ export default function ToolDrawer({
                     setIsOpen(false);
                   }}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: 'rgba(255, 255, 255, 0.85)',
+                    background: '#fafbfb',
+                    border: '1px solid #e6e8eb',
+                    color: '#1a1d24',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     fontSize: '0.78rem',
@@ -696,18 +789,19 @@ export default function ToolDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    fontFamily: 'inherit',
                   }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'; }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = '#f4f5f6'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#fafbfb'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                    <span style={{ color: '#68707c' }}>
                       <Icons.Rotate />
                     </span>
                     <div style={{ textAlign: 'left' }}>
                       <div>โหลดผังตัวอย่าง</div>
-                      <div style={{ fontSize: '0.64rem', color: 'rgba(255, 255, 255, 0.45)' }}>
+                      <div style={{ fontSize: '0.64rem', color: '#9aa1ab' }}>
                         ผังโรงงานมาตรฐาน
                       </div>
                     </div>
@@ -719,7 +813,7 @@ export default function ToolDrawer({
             {/* SECTION 2: PINNED TARGET LOCATIONS */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#a7f3d0', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#15803d', letterSpacing: '0.04em' }}>
                   จุดปักหมุด ({pinnedTargets.length})
                 </span>
                 {pinnedTargets.length > 0 && onClearAllPins && (
@@ -730,9 +824,9 @@ export default function ToolDrawer({
                       }
                     }}
                     style={{
-                      background: 'rgba(239, 68, 68, 0.12)',
-                      border: '1px solid rgba(239, 68, 68, 0.25)',
-                      color: '#fca5a5',
+                      background: '#fee2e2',
+                      border: '1px solid #fecaca',
+                      color: '#dc2626',
                       borderRadius: '4px',
                       padding: '2px 5px',
                       fontSize: '0.64rem',
@@ -748,11 +842,11 @@ export default function ToolDrawer({
               {pinnedTargets.length === 0 ? (
                 <div style={{
                   padding: '10px 12px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px dashed rgba(255, 255, 255, 0.08)',
+                  background: '#fafbfb',
+                  border: '1px dashed #e6e8eb',
                   borderRadius: '6px',
                   fontSize: '0.7rem',
-                  color: 'rgba(255, 255, 255, 0.45)',
+                  color: '#9aa1ab',
                   textAlign: 'center'
                 }}>
                   ยังไม่มีจุดปักหมุดในผัง
@@ -763,8 +857,8 @@ export default function ToolDrawer({
                     <div
                       key={pin.id}
                       style={{
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: '#fafbfb',
+                        border: '1px solid #e6e8eb',
                         borderRadius: '6px',
                         padding: '6px 8px',
                         display: 'flex',
@@ -776,7 +870,7 @@ export default function ToolDrawer({
                     >
                       <div
                         onClick={() => onDispatchToPin && onDispatchToPin(pin)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1, color: '#1a1d24' }}
                         title="คลิกเพื่อให้หุ่นยนต์วิ่งไป"
                       >
                         <Icons.Pin />
@@ -787,9 +881,9 @@ export default function ToolDrawer({
                         <button
                           onClick={() => onDispatchToPin && onDispatchToPin(pin)}
                           style={{
-                            background: 'rgba(52, 211, 153, 0.15)',
-                            border: '1px solid rgba(52, 211, 153, 0.3)',
-                            color: '#a7f3d0',
+                            background: '#dcfce7',
+                            border: '1px solid #86efac',
+                            color: '#15803d',
                             borderRadius: '4px',
                             padding: '3px 6px',
                             fontSize: '0.66rem',
@@ -805,9 +899,9 @@ export default function ToolDrawer({
                           }}
                           title="ลบหมุดนี้"
                           style={{
-                            background: 'rgba(239, 68, 68, 0.12)',
-                            border: '1px solid rgba(239, 68, 68, 0.25)',
-                            color: '#fca5a5',
+                            background: '#fee2e2',
+                            border: '1px solid #fecaca',
+                            color: '#dc2626',
                             borderRadius: '4px',
                             padding: '3px 5px',
                             fontSize: '0.66rem',
@@ -829,16 +923,16 @@ export default function ToolDrawer({
             {/* SECTION 3: CAMERA VIEW */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'rgba(255, 255, 255, 0.5)', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#68707c', letterSpacing: '0.04em' }}>
                   มุมมองกล้อง 3D
                 </span>
                 {onTriggerIntro && (
                   <button
                     onClick={onTriggerIntro}
                     style={{
-                      background: 'rgba(0, 230, 118, 0.12)',
-                      border: '1px solid rgba(0, 230, 118, 0.25)',
-                      color: '#00e676',
+                      background: '#dcfce7',
+                      border: '1px solid #86efac',
+                      color: '#15803d',
                       borderRadius: '5px',
                       padding: '2px 6px',
                       fontSize: '0.66rem',
@@ -858,7 +952,7 @@ export default function ToolDrawer({
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: '5px',
-                background: 'rgba(0, 0, 0, 0.25)',
+                background: '#f4f5f6',
                 padding: '3px',
                 borderRadius: '8px'
               }}>
@@ -873,9 +967,9 @@ export default function ToolDrawer({
                       key={v.id}
                       onClick={() => setCameraView(v.id)}
                       style={{
-                        background: isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
-                        color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.6)',
-                        border: 'none',
+                        background: isActive ? '#ffffff' : 'transparent',
+                        color: isActive ? '#1a1d24' : '#68707c',
+                        border: isActive ? '1px solid #e6e8eb' : 'none',
                         borderRadius: '6px',
                         padding: '6px 3px',
                         fontSize: '0.7rem',
@@ -885,7 +979,9 @@ export default function ToolDrawer({
                         flexDirection: 'column',
                         alignItems: 'center',
                         gap: '3px',
-                        transition: 'all 0.15s ease'
+                        transition: 'all 0.15s ease',
+                        boxShadow: isActive ? '0 1px 3px rgba(16,24,40,.08)' : 'none',
+                        fontFamily: 'inherit',
                       }}
                     >
                       <span style={{ opacity: isActive ? 1 : 0.7 }}>{v.icon}</span>
@@ -898,16 +994,16 @@ export default function ToolDrawer({
 
             {/* SECTION 4: ROBOT SIMULATION & ANOMALY */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'rgba(255, 255, 255, 0.5)', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#68707c', letterSpacing: '0.04em' }}>
                 จำลองสถานการณ์
               </span>
 
               <button
                 onClick={onToggleAnomaly}
                 style={{
-                  background: hasAnomaly ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.08)',
-                  border: hasAnomaly ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(245, 158, 11, 0.18)',
-                  color: hasAnomaly ? '#fca5a5' : '#fde68a',
+                  background: hasAnomaly ? '#fee2e2' : '#fef3c7',
+                  border: hasAnomaly ? '1px solid #fecaca' : '1px solid #fde68a',
+                  color: hasAnomaly ? '#dc2626' : '#d97706',
                   borderRadius: '8px',
                   padding: '8px 12px',
                   fontSize: '0.78rem',
@@ -916,7 +1012,8 @@ export default function ToolDrawer({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  transition: 'all 0.15s'
+                  transition: 'all 0.15s',
+                  fontFamily: 'inherit',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
@@ -928,16 +1025,16 @@ export default function ToolDrawer({
 
             {/* SECTION 5: DAY / NIGHT MODE */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'rgba(255, 255, 255, 0.5)', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#68707c', letterSpacing: '0.04em' }}>
                 โหมดพลังงาน
               </span>
 
               <button
                 onClick={() => setIsNightMode(!isNightMode)}
                 style={{
-                  background: isNightMode ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: '#ffffff',
+                  background: isNightMode ? '#f3e8fd' : '#fafbfb',
+                  border: isNightMode ? '1px solid #e9d5ff' : '1px solid #e6e8eb',
+                  color: '#1a1d24',
                   borderRadius: '8px',
                   padding: '8px 12px',
                   fontSize: '0.78rem',
@@ -946,10 +1043,11 @@ export default function ToolDrawer({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  transition: 'all 0.15s'
+                  transition: 'all 0.15s',
+                  fontFamily: 'inherit',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: isNightMode ? '#7c3aed' : '#1a1d24' }}>
                   {isNightMode ? <Icons.Moon /> : <Icons.Sun />}
                   <span>{isNightMode ? 'โหมดกลางคืน (ประหยัดไฟ)' : 'โหมดกลางวัน'}</span>
                 </div>
@@ -961,26 +1059,27 @@ export default function ToolDrawer({
         {/* Telemetry Footer */}
         <div style={{
           marginTop: 'auto',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          background: '#fafbfb',
+          border: '1px solid #e6e8eb',
           borderRadius: '8px',
           padding: '10px 12px',
           display: 'flex',
           flexDirection: 'column',
           gap: '5px',
           fontSize: '0.72rem',
-          color: 'rgba(255, 255, 255, 0.7)'
+          color: '#1a1d24'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'rgba(255, 255, 255, 0.45)' }}>สถานะหุ่นยนต์:</span>
-            <span style={{ color: '#34d399', fontWeight: '500' }}>{robotStatus.mode}</span>
+            <span style={{ color: '#9aa1ab' }}>สถานะหุ่นยนต์:</span>
+            <span style={{ color: '#15803d', fontWeight: '500' }}>{robotStatus.mode}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'rgba(255, 255, 255, 0.45)' }}>แบตเตอรี่:</span>
+            <span style={{ color: '#9aa1ab' }}>แบตเตอรี่:</span>
             <span style={{ fontWeight: '500' }}>{robotStatus.battery}%</span>
           </div>
         </div>
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 }

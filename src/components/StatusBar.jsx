@@ -26,44 +26,54 @@ const Icons = {
 };
 
 export default function StatusBar({ robotStatus, activeMode, onTriggerSimulatedAnomaly }) {
-  const [time, setTime] = useState(new Date().toLocaleTimeString());
+  const [time, setTime] = useState(new Date().toLocaleTimeString('th-TH'));
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTime(new Date().toLocaleTimeString());
+      setTime(new Date().toLocaleTimeString('th-TH'));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
   const getModeColor = (mode) => {
     switch (mode) {
-      case 'ACTIVE': return 'var(--eco-green)';
+      case 'ACTIVE': return 'var(--eco-green-dark)';
       case 'PATROL': return 'var(--tech-cyan)';
       case 'STANDBY': return 'var(--warning-amber)';
-      case 'DEEP_SLEEP': return '#c084fc';
-      default: return 'var(--eco-green)';
+      case 'DEEP_SLEEP': return '#7c3aed';
+      default: return 'var(--eco-green-dark)';
+    }
+  };
+
+  const modeLabel = (mode) => {
+    switch (mode) {
+      case 'ACTIVE': return 'ทำงานปกติ';
+      case 'PATROL': return 'ตรวจตรา';
+      case 'STANDBY': return 'สแตนด์บาย';
+      case 'DEEP_SLEEP': return 'พักหลับ & รักษาความปลอดภัย';
+      default: return mode;
     }
   };
 
   return (
     <header className="glass-panel" style={{
       margin: '12px 16px 0 16px',
-      padding: '8px 16px',
+      padding: '10px 20px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       border: '1px solid var(--border-subtle)',
       borderRadius: 'var(--radius-md)',
-      background: 'rgba(10, 16, 24, 0.9)'
+      background: '#ffffff'
     }}>
       {/* Left: Robot ID, Connection & Operational Mode */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="status-pulse green"></span>
           <div>
-            <span style={{ fontSize: '0.64rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>AMR UNIT</span>
-            <div style={{ fontSize: '0.92rem', fontWeight: '700', letterSpacing: '0.02em', color: '#fff' }}>
-              {robotStatus.name} <span style={{ color: 'var(--tech-cyan)', fontSize: '0.74rem', fontFamily: 'var(--font-mono)' }}>[{robotStatus.id}]</span>
+            <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)' }}>หุ่นยนต์</span>
+            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-main)' }}>
+              {robotStatus.name} <span style={{ color: 'var(--tech-cyan)', fontSize: '0.74rem' }}>[{robotStatus.id}]</span>
             </div>
           </div>
         </div>
@@ -71,27 +81,23 @@ export default function StatusBar({ robotStatus, activeMode, onTriggerSimulatedA
         <div style={{ height: '20px', width: '1px', background: 'var(--border-subtle)' }}></div>
 
         {/* Operating Mode Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>MODE:</span>
-          <span className="hud-badge" style={{
-            background: `rgba(${activeMode === 'DEEP_SLEEP' ? '192,132,252' : '0,230,118'}, 0.12)`,
-            color: getModeColor(activeMode),
-            borderColor: getModeColor(activeMode),
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '2px 8px',
-            fontSize: '0.72rem'
-          }}>
-            {activeMode === 'DEEP_SLEEP' ? <Icons.Moon /> : <Icons.Bolt />}
-            <span>{activeMode === 'DEEP_SLEEP' ? 'SLEEP & SECURITY' : activeMode}</span>
-          </span>
-        </div>
+        <span className="hud-badge" style={{
+          background: activeMode === 'DEEP_SLEEP' ? '#ede9fe' : 'var(--eco-green-soft)',
+          color: getModeColor(activeMode),
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px 10px',
+          fontSize: '0.74rem'
+        }}>
+          {activeMode === 'DEEP_SLEEP' ? <Icons.Moon /> : <Icons.Bolt />}
+          <span>{modeLabel(activeMode)}</span>
+        </span>
 
-        {/* Location HUD */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-          <span style={{ color: 'var(--tech-cyan)', display: 'flex', alignItems: 'center' }}>
+        {/* Location */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <span style={{ color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Icons.Pin />
           </span>
           <span>{robotStatus.currentLocation}</span>
@@ -101,48 +107,27 @@ export default function StatusBar({ robotStatus, activeMode, onTriggerSimulatedA
       {/* Right: Quick Telemetry & Simulation Triggers */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         {/* Battery & Power */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '3px 10px', borderRadius: '5px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>BATTERY</div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: robotStatus.battery > 30 ? 'var(--eco-green)' : 'var(--warning-amber)', fontFamily: 'var(--font-mono)' }}>
-              {robotStatus.battery}%
-            </div>
-          </div>
-          <div style={{
-            width: '24px',
-            height: '12px',
-            border: '1px solid var(--eco-green)',
-            borderRadius: '2px',
-            padding: '1px',
-            position: 'relative'
-          }}>
-            <div style={{
-              width: `${robotStatus.battery}%`,
-              height: '100%',
-              background: 'var(--eco-green)',
-              borderRadius: '1px'
-            }}></div>
-          </div>
-        </div>
-
-        {/* mmWave Radar Link */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span className="hud-badge hud-badge-cyan" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.7rem' }}>
-            <Icons.Radar />
-            <span>RADAR 60GHz</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f4f5f6', padding: '5px 12px', borderRadius: '9px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>แบตเตอรี่</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: robotStatus.battery > 30 ? 'var(--eco-green-dark)' : 'var(--warning-amber)' }}>
+            {robotStatus.battery}%
           </span>
         </div>
 
+        {/* mmWave Radar Link */}
+        <span className="hud-badge hud-badge-cyan" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 11px', fontSize: '0.74rem' }}>
+          <Icons.Radar />
+          <span>เรดาร์ 60GHz</span>
+        </span>
+
         {/* Live Clock */}
         <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.9rem',
-          color: '#fff',
-          letterSpacing: '0.04em',
-          background: 'rgba(15, 23, 33, 0.8)',
-          padding: '3px 8px',
-          borderRadius: '4px',
-          border: '1px solid var(--border-subtle)'
+          fontFamily: "'IBM Plex Sans', monospace",
+          fontSize: '0.85rem',
+          color: 'var(--text-muted)',
+          background: '#f4f5f6',
+          padding: '5px 10px',
+          borderRadius: '8px'
         }}>
           {time}
         </div>
@@ -152,18 +137,20 @@ export default function StatusBar({ robotStatus, activeMode, onTriggerSimulatedA
           onClick={onTriggerSimulatedAnomaly}
           className="btn-cyber"
           style={{
-            fontSize: '0.72rem',
-            padding: '4px 8px',
-            borderColor: 'var(--warning-amber)',
+            fontSize: '0.78rem',
+            padding: '0 14px',
+            height: '34px',
+            border: '1px solid var(--warning-amber)',
             color: 'var(--warning-amber)',
+            background: '#fff',
             display: 'flex',
             alignItems: 'center',
-            gap: '4px'
+            gap: '6px'
           }}
-          title="Simulate Obstacle"
+          title="จำลองสิ่งกีดขวาง"
         >
           <Icons.Bolt />
-          <span>SIMULATE ANOMALY</span>
+          <span>จำลองเหตุการณ์ผิดปกติ</span>
         </button>
       </div>
     </header>

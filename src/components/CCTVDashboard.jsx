@@ -1,20 +1,146 @@
-import React, { useState, useEffect } from 'react';
-import { MOCK_VIDEO_LOGS } from '../data/mockData';
+import React, { useState, useEffect, useRef } from 'react';
+import { MOCK_VIDEO_LOGS } from '../data/mockData.js';
+
+const TAG_LABELS = {
+  ALL: 'ทั้งหมด',
+  NORMAL_PICK: 'หยิบปกติ',
+  DEFECT_FOUND: 'พบตำหนิ',
+  FALLEN_ITEM: 'ของตกพื้น',
+};
+
+const ACTION_LABELS = {
+  PICK_AND_VERIFY: 'ยกและตรวจสอบ',
+  MULTI_DISPATCH: 'จ่ายหลายรายการ',
+  VISION_INSPECT_FAIL: 'ตรวจพบตำหนิ',
+  POINT_TO_PICK: 'ชี้เพื่อสั่งหยิบ',
+  SPATIAL_ANOMALY_LOG: 'ของตกพื้น',
+  LIVE_STREAM: 'ถ่ายทอดสด',
+};
 
 export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
-  const [selectedLog, setSelectedLog] = useState(MOCK_VIDEO_LOGS[0]);
   const [isPointToPickActive, setIsPointToPickActive] = useState(false);
   const [targetCoordinate, setTargetCoordinate] = useState(null);
-  const [isStreaming, setIsStreaming] = useState(true);
   const [filterTag, setFilterTag] = useState('ALL');
-  const [streamOverlayTime, setStreamOverlayTime] = useState(new Date().toLocaleTimeString());
+  const [streamOverlayTime, setStreamOverlayTime] = useState(new Date().toLocaleTimeString('th-TH'));
   const [activeDefectTest, setActiveDefectTest] = useState(false);
+
+  // Real Camera States
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [cameraMode, setCameraMode] = useState('webcam'); // 'webcam' | 'simulation'
+  const [cameraStatus, setCameraStatus] = useState('initializing'); // 'active', 'permission_needed', 'no_camera', 'error', 'simulation'
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isMirrored, setIsMirrored] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setStreamOverlayTime(new Date().toLocaleTimeString());
+      setStreamOverlayTime(new Date().toLocaleTimeString('th-TH'));
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Fetch available camera devices
+  const refreshDevices = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(videoInputs);
+      return videoInputs;
+    } catch (err) {
+      console.warn('Error enumerating devices:', err);
+      return [];
+    }
+  };
+
+  // Start live webcam stream
+  const startCamera = async (deviceIdToUse) => {
+    if (cameraMode !== 'webcam') return;
+    setCameraStatus('initializing');
+    setErrorMessage('');
+
+    // Clean up previous tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraStatus('error');
+        setErrorMessage('เบราว์เซอร์นี้ไม่รองรับการเข้าถึงกล้อง (WebRTC)');
+        return;
+      }
+
+      const constraints = {
+        video: deviceIdToUse
+          ? { deviceId: { exact: deviceIdToUse }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+          : { width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.log('Video play error:', e));
+      }
+      setCameraStatus('active');
+
+      // Refresh devices to get friendly labels now that permission is granted
+      await refreshDevices();
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+        if (settings.deviceId && !deviceIdToUse) {
+          setSelectedDeviceId(settings.deviceId);
+        }
+      }
+    } catch (err) {
+      console.error('Camera access error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraStatus('permission_needed');
+        setErrorMessage('โปรดอนุญาตการเข้าถึงกล้องในเบราว์เซอร์');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraStatus('no_camera');
+        setErrorMessage('ไม่พบอุปกรณ์กล้องที่เชื่อมต่อกับคอมพิวเตอร์');
+      } else {
+        setCameraStatus('error');
+        setErrorMessage(`ไม่สามารถเปิดกล้องได้: ${err.message || err.name}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (cameraMode === 'webcam') {
+      startCamera(selectedDeviceId);
+    } else {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      setCameraStatus('simulation');
+    }
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraMode, selectedDeviceId]);
+
+  // Listen to camera plug/unplug events
+  useEffect(() => {
+    const handleDeviceChange = () => {
+      refreshDevices();
+    };
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+      return () => navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+    }
   }, []);
 
   const handleVideoCanvasClick = (e) => {
@@ -23,22 +149,26 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
     const x = Math.round(e.clientX - rect.left);
     const y = Math.round(e.clientY - rect.top);
     setTargetCoordinate({ x, y });
-    
-    // Simulate robot dispatch for Point-to-Pick
+
     setTimeout(() => {
-      alert(`POINT-TO-PICK DISPATCHED!\nRobot arm locked onto target coordinates [X: ${x}, Y: ${y}]. Moving to pick location...`);
+      alert(`สั่งหยิบตามจุดที่ชี้แล้ว!\nแขนหุ่นยนต์ล็อกเป้าที่ตำแหน่ง [X: ${x}, Y: ${y}] กำลังเคลื่อนที่ไปหยิบ...`);
       setIsPointToPickActive(false);
       setTargetCoordinate(null);
       if (onTriggerPick) onTriggerPick({ x, y });
     }, 400);
   };
 
-  const filteredLogs = filterTag === 'ALL' 
-    ? MOCK_VIDEO_LOGS 
+  const filteredLogs = filterTag === 'ALL'
+    ? MOCK_VIDEO_LOGS
     : MOCK_VIDEO_LOGS.filter(l => l.tag === filterTag);
 
+  const selectedDeviceObj = videoDevices.find(d => d.deviceId === selectedDeviceId);
+  const activeCameraLabel = cameraMode === 'webcam'
+    ? (selectedDeviceObj?.label || (videoDevices.length > 0 ? videoDevices[0].label : 'กล้องเว็บแคมจริง'))
+    : 'แบบจำลอง 3D (Simulation)';
+
   return (
-    <div style={{
+    <div className="dashboard-grid" style={{
       display: 'grid',
       gridTemplateColumns: '1.4fr 1fr',
       gap: '16px',
@@ -46,145 +176,480 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
       height: 'calc(100vh - 100px)',
       overflowY: 'auto'
     }}>
-      {/* LEFT COLUMN: LIVE MOBILE CCTV STREAM + POINT-TO-PICK */}
+      {/* LEFT COLUMN: LIVE FEED + POINT-TO-PICK */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {/* Main CCTV Feed Card */}
-        <div className="glass-panel" style={{ padding: '16px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="tech-corner-tl"></div>
-          <div className="tech-corner-br"></div>
-
+        <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className="status-pulse red"></span>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '700', letterSpacing: '0.04em' }}>
-                MOBILE CCTV LIVE FEED <span style={{ color: 'var(--tech-cyan)', fontSize: '0.85rem' }}>[CAM-01 4K HDR]</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+              <span className={`status-pulse ${cameraMode === 'webcam' && cameraStatus === 'active' ? 'green' : 'red'}`}></span>
+              <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ภาพสดจากกล้องหุ่นยนต์
+                <span style={{ color: 'var(--tech-cyan)', fontSize: '0.78rem', fontWeight: 500 }}>
+                  [{activeCameraLabel}]
+                </span>
               </h2>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => setIsPointToPickActive(!isPointToPickActive)}
                 className={`btn-cyber ${isPointToPickActive ? 'btn-cyber-primary' : ''}`}
-                style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                style={{ fontSize: '0.76rem', padding: '6px 12px' }}
               >
-                {isPointToPickActive ? 'TAP SCREEN TO PICK...' : 'ENABLE POINT-TO-PICK'}
+                {isPointToPickActive ? 'แตะที่จอเพื่อสั่งหยิบ...' : 'เปิดโหมดชี้เพื่อสั่งหยิบ'}
               </button>
               <button
                 onClick={() => setActiveDefectTest(!activeDefectTest)}
                 className="btn-cyber"
-                style={{ fontSize: '0.78rem', padding: '4px 10px', borderColor: 'var(--warning-amber)', color: 'var(--warning-amber)' }}
+                style={{ fontSize: '0.76rem', padding: '6px 12px', borderColor: activeDefectTest ? 'var(--warning-amber)' : 'var(--border-subtle)', color: activeDefectTest ? 'var(--warning-amber)' : 'var(--text-main)' }}
               >
-                {activeDefectTest ? 'DEFECT SIM: ON' : 'TEST DEFECT AI'}
+                {activeDefectTest ? 'กำลังทดสอบตรวจจับตำหนิ' : 'ทดสอบตรวจจับตำหนิ (AI)'}
               </button>
             </div>
           </div>
 
-          {/* Simulated 4K CCTV Screen */}
+          {/* Camera Selection & Mode Controls */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            flexWrap: 'wrap',
+            background: 'rgba(15, 23, 42, 0.04)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(0,0,0,0.06)'
+          }}>
+            {/* Camera selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                📷 เลือกกล้อง:
+              </label>
+              <select
+                value={selectedDeviceId}
+                onChange={(e) => {
+                  setSelectedDeviceId(e.target.value);
+                  setCameraMode('webcam');
+                }}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  background: '#0f172a',
+                  color: '#38bdf8',
+                  border: '1px solid #334155',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  minWidth: '180px',
+                  maxWidth: '260px'
+                }}
+              >
+                {videoDevices.length === 0 ? (
+                  <option value="">กล้องเริ่มต้น / กล้องระบบ (Default)</option>
+                ) : (
+                  videoDevices.map((dev, idx) => (
+                    <option key={dev.deviceId || idx} value={dev.deviceId}>
+                      {dev.label ? dev.label : `กล้องอุปกรณ์ #${idx + 1}`}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              {/* Mode Toggle */}
+              <div style={{ display: 'flex', gap: '2px', background: '#0f172a', padding: '3px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+                <button
+                  type="button"
+                  onClick={() => setCameraMode('webcam')}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    background: cameraMode === 'webcam' ? '#10b981' : 'transparent',
+                    color: cameraMode === 'webcam' ? '#000' : 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  📷 กล้องสดจริง
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraMode('simulation')}
+                  style={{
+                    padding: '4px 9px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    background: cameraMode === 'simulation' ? '#3b82f6' : 'transparent',
+                    color: cameraMode === 'simulation' ? '#fff' : 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  🌐 แบบจำลอง 3D
+                </button>
+              </div>
+
+              {/* Mirror toggle for webcam */}
+              {cameraMode === 'webcam' && (
+                <button
+                  type="button"
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  title="สลับมุมมองกระจก (Mirror Camera)"
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: isMirrored ? 'rgba(56, 189, 248, 0.15)' : '#0f172a',
+                    border: isMirrored ? '1px solid #38bdf8' : '1px solid #334155',
+                    color: isMirrored ? '#38bdf8' : 'rgba(255,255,255,0.8)',
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>🪞</span>
+                  <span>{isMirrored ? 'กลับด้าน: เปิด' : 'กลับด้าน: ปิด'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Status indicators */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
+              {cameraMode === 'webcam' && cameraStatus === 'active' && (
+                <span className="hud-badge hud-badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a' }} />
+                  เชื่อมต่อกล้องจริงแล้ว
+                </span>
+              )}
+              {cameraMode === 'webcam' && cameraStatus === 'permission_needed' && (
+                <span className="hud-badge hud-badge-red">รออนุญาตสิทธิ์กล้อง</span>
+              )}
+              {cameraMode === 'simulation' && (
+                <span className="hud-badge hud-badge-cyan">โหมดจำลอง 3D</span>
+              )}
+              <span className="hud-badge hud-badge-red">● ถ่ายทอดสด</span>
+              <span style={{ color: 'var(--text-dim)' }}>60 FPS · 14.8 Mbps</span>
+            </div>
+          </div>
+
+          {/* Realistic Robot POV Camera Stream Screen */}
           <div
             onClick={handleVideoCanvasClick}
             style={{
               position: 'relative',
-              height: '380px',
-              borderRadius: '8px',
+              height: '360px',
+              borderRadius: '12px',
               overflow: 'hidden',
               cursor: isPointToPickActive ? 'crosshair' : 'default',
-              background: 'linear-gradient(135deg, #09131a 0%, #03080e 100%)',
-              border: isPointToPickActive ? '2px dashed var(--eco-green)' : '1px solid var(--border-cyan)',
+              background: '#0d131a',
+              border: isPointToPickActive ? '2px dashed #00e676' : '1px solid #1e293b',
+              boxShadow: 'inset 0 0 40px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.15)',
+            }}
+          >
+            {/* LIVE WEBCAM VIDEO FEED */}
+            {cameraMode === 'webcam' && (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: isMirrored ? 'scaleX(-1)' : 'none',
+                  display: cameraStatus === 'active' ? 'block' : 'none',
+                  zIndex: 1,
+                }}
+              />
+            )}
+
+            {/* WEBCAM ERROR / PERMISSION FALLBACK SCREEN */}
+            {cameraMode === 'webcam' && cameraStatus !== 'active' && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'radial-gradient(ellipse at 50% 50%, #1e293b 0%, #090d14 100%)',
+                color: '#fff',
+                gap: '10px',
+                padding: '24px',
+                textAlign: 'center',
+                zIndex: 10
+              }}>
+                <div style={{ fontSize: '2.5rem' }}>📹</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f87171' }}>
+                  {cameraStatus === 'permission_needed' ? 'ต้องการสิทธิ์การเข้าถึงกล้อง' : (errorMessage || 'กำลังเชื่อมต่อสัญญาณกล้อง...')}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', maxWidth: '380px', lineHeight: 1.5 }}>
+                  {cameraStatus === 'permission_needed'
+                    ? 'โปรดกด "อนุญาต (Allow)" ในหน้าต่างเบราว์เซอร์ เพื่อให้ระบบ Vision AI ดึงภาพสดจากกล้องที่เชื่อมต่อ'
+                    : 'ไม่พบสัญญาณจากกล้องที่เลือก สามารถกดลองใหม่อีกครั้ง หรือสลับไปใช้โหมดจำลอง 3D'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <button
+                    onClick={() => startCamera(selectedDeviceId)}
+                    className="btn-cyber btn-cyber-primary"
+                    style={{ fontSize: '0.8rem', padding: '6px 16px' }}
+                  >
+                    🔄 ลองเชื่อมต่อใหม่
+                  </button>
+                  <button
+                    onClick={() => setCameraMode('simulation')}
+                    className="btn-cyber"
+                    style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                  >
+                    🌐 สลับใช้แบบจำลอง 3D
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 3D Warehouse Corridor Simulation (Shown when cameraMode === 'simulation') */}
+            {cameraMode === 'simulation' && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(ellipse at 50% 40%, #1a2636 0%, #0a0f16 75%, #05080c 100%)',
+                overflow: 'hidden',
+                zIndex: 1,
+              }}>
+                {/* Floor grid / perspective road lanes */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: '50%',
+                  transform: 'translateX(-50%) perspective(280px) rotateX(55deg)',
+                  width: '600px',
+                  height: '240px',
+                  background: 'linear-gradient(to bottom, transparent 0%, rgba(16,185,129,0.08) 60%, rgba(16,185,129,0.18) 100%)',
+                  backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 60px)',
+                  borderTop: '1px solid rgba(16,185,129,0.3)',
+                }}>
+                  {/* Center Road Guide Line */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: '50%',
+                    width: '6px',
+                    transform: 'translateX(-50%)',
+                    background: 'repeating-linear-gradient(to bottom, #10b981 0px, #10b981 20px, transparent 20px, transparent 40px)',
+                    boxShadow: '0 0 10px rgba(16,185,129,0.5)',
+                  }} />
+                </div>
+
+                {/* Left Warehouse Shelf Rack Silhouette */}
+                <div style={{
+                  position: 'absolute',
+                  top: '15%',
+                  bottom: '10%',
+                  left: '2%',
+                  width: '18%',
+                  border: '2px solid rgba(59, 130, 246, 0.4)',
+                  background: 'linear-gradient(135deg, rgba(30,58,138,0.25) 0%, rgba(15,23,42,0.6) 100%)',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-around',
+                  padding: '6px',
+                }}>
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                </div>
+
+                {/* Right Warehouse Shelf Rack Silhouette */}
+                <div style={{
+                  position: 'absolute',
+                  top: '15%',
+                  bottom: '10%',
+                  right: '2%',
+                  width: '18%',
+                  border: '2px solid rgba(59, 130, 246, 0.4)',
+                  background: 'linear-gradient(225deg, rgba(30,58,138,0.25) 0%, rgba(15,23,42,0.6) 100%)',
+                  borderRadius: '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-around',
+                  padding: '6px',
+                }}>
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                  <div style={{ height: '3px', background: '#3b82f6', opacity: 0.6, boxShadow: '0 0 6px #3b82f6' }} />
+                </div>
+              </div>
+            )}
+
+            {/* 2. AI Computer Vision Bounding Boxes Overlay (Floating over Live Video / Simulation) */}
+            {/* Box 1: Left Rack Inspection Box */}
+            <div style={{
+              position: 'absolute',
+              top: '22%',
+              left: '23%',
+              width: '120px',
+              height: '80px',
+              border: '1.5px solid #00e676',
+              background: 'rgba(0, 230, 118, 0.08)',
+              borderRadius: '3px',
+              padding: '3px 5px',
+              boxShadow: '0 0 12px rgba(0,230,118,0.2)',
+              zIndex: 15,
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-16px',
+                left: '-1px',
+                background: '#00e676',
+                color: '#000',
+                fontSize: '0.58rem',
+                fontWeight: '700',
+                padding: '1px 4px',
+                borderRadius: '2px',
+                letterSpacing: '0.02em',
+                whiteSpace: 'nowrap',
+              }}>
+                [BAY-A01] 99.8% READY
+              </div>
+            </div>
+
+            {/* Box 2: Center Moving Cargo Box (Inbound Pallet) */}
+            <div style={{
+              position: 'absolute',
+              top: '44%',
+              left: '42%',
+              width: '140px',
+              height: '95px',
+              border: activeDefectTest ? '2px solid #ef4444' : '1.5px solid #00e5ff',
+              background: activeDefectTest ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0, 229, 255, 0.08)',
+              borderRadius: '3px',
+              padding: '4px',
+              boxShadow: activeDefectTest ? '0 0 16px rgba(239,68,68,0.4)' : '0 0 12px rgba(0,229,255,0.25)',
+              transition: 'all 0.3s ease',
+              zIndex: 15,
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-16px',
+                left: '-1px',
+                background: activeDefectTest ? '#ef4444' : '#00e5ff',
+                color: '#000',
+                fontSize: '0.58rem',
+                fontWeight: '700',
+                padding: '1px 4px',
+                borderRadius: '2px',
+                letterSpacing: '0.02em',
+                whiteSpace: 'nowrap',
+              }}>
+                {activeDefectTest ? '⚠ DEFECT DETECTED' : '[PARCEL-BOX-01] 99.4% QC'}
+              </div>
+            </div>
+
+            {/* Box 3: Right Rack Inspection Box */}
+            <div style={{
+              position: 'absolute',
+              top: '26%',
+              right: '23%',
+              width: '110px',
+              height: '75px',
+              border: '1.5px solid #f59e0b',
+              background: 'rgba(245, 158, 11, 0.08)',
+              borderRadius: '3px',
+              padding: '3px 5px',
+              boxShadow: '0 0 12px rgba(245,158,11,0.2)',
+              zIndex: 15,
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-16px',
+                left: '-1px',
+                background: '#f59e0b',
+                color: '#000',
+                fontSize: '0.58rem',
+                fontWeight: '700',
+                padding: '1px 4px',
+                borderRadius: '2px',
+                letterSpacing: '0.02em',
+                whiteSpace: 'nowrap',
+              }}>
+                [BAY-B02] TARGET SLOT
+              </div>
+            </div>
+
+            {/* 3. Optical Crosshair HUD Overlay */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)'
-            }}
-          >
-            <div className="scanline-overlay"></div>
+              width: '140px',
+              height: '140px',
+              zIndex: 20,
+            }}>
+              {/* Outer HUD Corner Reticles */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                border: '1px dashed rgba(0, 229, 255, 0.35)',
+                borderRadius: '50%',
+              }} />
+              {/* Crosshair Center Reticle */}
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '1.5px solid #00e676',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <div style={{ width: '4px', height: '4px', background: '#00e676', borderRadius: '50%' }} />
+              </div>
+              <div style={{ position: 'absolute', left: 0, right: 0, height: '1px', background: 'rgba(0, 229, 255, 0.25)' }} />
+              <div style={{ position: 'absolute', top: 0, bottom: 0, width: '1px', background: 'rgba(0, 229, 255, 0.25)' }} />
+            </div>
 
-            {/* Simulated Live Warehouse Scene Elements */}
+            {/* 4. Top Telemetry Banner Overlay */}
             <div style={{
               position: 'absolute',
-              inset: 0,
+              top: '10px',
+              left: '12px',
+              right: '12px',
               display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-around',
-              padding: '20px',
-              opacity: 0.85
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '0.66rem',
+              color: 'rgba(255,255,255,0.85)',
+              fontFamily: 'monospace',
+              pointerEvents: 'none',
+              zIndex: 25,
             }}>
-              {/* Simulated Shelf Rows */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '12px',
-                height: '140px',
-                borderBottom: '2px solid rgba(0, 176, 255, 0.2)'
-              }}>
-                {[
-                  { name: 'SKU-CHEM-101', pass: true, tag: 'REAGENT 98%' },
-                  { name: 'SKU-MED-204', pass: true, tag: 'BUFFER SOL' },
-                  { name: 'SKU-IND-409', pass: !activeDefectTest, tag: activeDefectTest ? 'MICRO-STRESS' : 'CARBONATE' },
-                  { name: 'SKU-BIO-512', pass: true, tag: 'MEDIUM 1L' },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      border: item.pass ? '1px solid rgba(0, 230, 118, 0.4)' : '2px solid var(--danger-red)',
-                      borderRadius: '6px',
-                      background: item.pass ? 'rgba(0, 230, 118, 0.05)' : 'rgba(255, 23, 68, 0.15)',
-                      padding: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      position: 'relative'
-                    }}
-                  >
-                    <span style={{
-                      fontSize: '0.62rem',
-                      fontFamily: 'var(--font-mono)',
-                      color: item.pass ? 'var(--eco-green)' : 'var(--danger-red)',
-                      fontWeight: 'bold'
-                    }}>
-                      {item.pass ? '✓ QC OK [99.8%]' : 'DEFECT DETECTED'}
-                    </span>
-                    <div style={{ textAlign: 'center', color: item.pass ? '#34d399' : '#ef4444', display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
-                      {item.pass ? (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M10 2v7.31L4.62 17.6A2 2 0 0 0 6.3 20.6h11.4a2 2 0 0 0 1.68-3L14 9.31V2"></path>
-                        </svg>
-                      ) : (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="12" y1="8" x2="12" y2="12"></line>
-                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                        </svg>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
-                      {item.name}
-                    </div>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#ef4444', fontWeight: 'bold' }}>● REC [4K HDR]</span>
+                <span>ISO 400</span>
+                <span>F/1.8</span>
+                <span>FOV 110°</span>
               </div>
-
-              {/* Floor Guideline & Robot Arm Focal Target */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '120px',
-                position: 'relative'
-              }}>
-                {/* Robot Target Crosshair */}
-                <div style={{
-                  width: '90px',
-                  height: '90px',
-                  border: '1px dashed var(--tech-cyan)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  animation: 'radar-sweep 8s linear infinite'
-                }}>
-                  <div style={{ width: '8px', height: '8px', background: 'var(--eco-green)', borderRadius: '50%' }}></div>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#00e5ff' }}>
+                <span>FPS: 60</span>
+                <span>PING: 12ms</span>
+                <span>AI: JETSON ORIN</span>
               </div>
             </div>
 
@@ -195,254 +660,188 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
                 left: `${targetCoordinate.x}px`,
                 top: `${targetCoordinate.y}px`,
                 transform: 'translate(-50%, -50%)',
-                zIndex: 30,
+                zIndex: 35,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center'
               }}>
                 <div style={{
-                  width: '24px',
-                  height: '24px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
-                  border: '2px solid var(--eco-green)',
-                  boxShadow: '0 0 15px var(--eco-green)',
-                  animation: 'pulse-ring 1s infinite'
-                }}></div>
-                <span className="hud-badge hud-badge-green" style={{ fontSize: '0.65rem', marginTop: '4px' }}>
-                  PICK TARGET LOCKED
+                  border: '2px solid #00e676',
+                  boxShadow: '0 0 15px #00e676',
+                }} />
+                <span style={{
+                  background: '#00e676',
+                  color: '#000',
+                  fontWeight: '700',
+                  fontSize: '0.65rem',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  marginTop: '4px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ล็อกเป้าหมายแล้ว
                 </span>
               </div>
             )}
 
-            {/* CCTV Stream HUD Top Left */}
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              left: '12px',
-              zIndex: 20,
-              display: 'flex',
-              gap: '6px'
-            }}>
-              <span className="hud-badge hud-badge-red" style={{ animation: 'glow-fade 1.5s infinite' }}>
-                ● LIVE CCTV
-              </span>
-              <span className="hud-badge hud-badge-cyan">
-                ROLLING BUFFER: 24/7 ACTIVE
-              </span>
-            </div>
-
-            {/* CCTV Stream HUD Top Right */}
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              right: '12px',
-              zIndex: 20,
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.78rem',
-              color: 'var(--eco-green)',
-              background: 'rgba(0,0,0,0.7)',
-              padding: '2px 8px',
-              borderRadius: '4px'
-            }}>
-              {streamOverlayTime} • 60 FPS • BITRATE 14.8 Mbps
-            </div>
-
-            {/* Bottom Stream Status */}
+            {/* Bottom Camera Info Footer */}
             <div style={{
               position: 'absolute',
               bottom: '10px',
               left: '12px',
               right: '12px',
-              zIndex: 20,
+              zIndex: 25,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.72rem',
-              color: 'var(--text-muted)',
-              background: 'rgba(5, 10, 15, 0.75)',
-              padding: '4px 10px',
-              borderRadius: '4px'
+              fontSize: '0.7rem',
+              color: 'rgba(255,255,255,0.8)',
+              fontFamily: 'monospace',
+              pointerEvents: 'none',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)',
+              padding: '4px 6px',
+              borderRadius: '4px',
             }}>
-              <span>AMR CAM: SONY IMX586 + EDGE INFERENCE JETSON ORIN</span>
-              <span style={{ color: 'var(--eco-green)' }}>DOUBLE-AUTHENTICATED BY mmWAVE</span>
+              <span>กล้อง AMR: {activeCameraLabel} · วิชั่น AI โมเดล V3</span>
+              <span style={{ color: '#00e676', fontWeight: 600 }}>ยืนยันซ้ำด้วยเรดาร์ · {streamOverlayTime}</span>
             </div>
           </div>
 
           {/* Point-to-Pick Helper Notification */}
           {isPointToPickActive && (
             <div style={{
-              background: 'rgba(0, 230, 118, 0.12)',
-              border: '1px solid var(--eco-green)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              color: '#fff',
+              background: 'var(--eco-green-soft)',
+              padding: '10px 14px',
+              borderRadius: '9px',
+              fontSize: '0.82rem',
+              color: 'var(--eco-green-dark)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px'
             }}>
-              <span><strong>Interactive AR Mode:</strong> Click any bottle, box, or shelf position on the video stream above to instantly dispatch the AMR to that coordinate!</span>
+              <span><strong>โหมด AR แบบโต้ตอบ:</strong> แตะที่ตำแหน่งใดก็ได้บนภาพวิดีโอด้านบน เพื่อสั่งหุ่นยนต์ล็อกพิกัดและเคลื่อนที่ไปหยิบทันที</span>
             </div>
           )}
         </div>
 
         {/* Smart Event Timeline Bar */}
-        <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="glass-panel" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: '700', letterSpacing: '0.04em' }}>
-              SMART CCTV TIMELINE (AI EVENT BOOKMARKS)
+            <div style={{ fontSize: '0.86rem', fontWeight: '700' }}>
+              ไทม์ไลน์เหตุการณ์
             </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              CLICK ANY EVENT TO WARP VIDEO
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+              คลิกเพื่อดูวิดีโอย้อนหลัง
             </span>
           </div>
 
           {/* Timeline Bar Track */}
-          <div style={{
-            position: 'relative',
-            height: '42px',
-            background: 'rgba(8, 14, 22, 0.9)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '6px',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 10px'
-          }}>
-            {/* Timeline hour ticks */}
-            <div style={{ width: '100%', height: '2px', background: 'rgba(255,255,255,0.1)', position: 'relative' }}>
-              {/* Event Bookmark Pins on Timeline */}
-              {MOCK_VIDEO_LOGS.map((log, index) => {
-                const leftPos = 15 + index * 18;
-                const isDefect = log.anomalyDetected;
-                return (
-                  <div
-                    key={log.id}
-                    onClick={() => onOpenVideoLog(log)}
-                    style={{
-                      position: 'absolute',
-                      left: `${leftPos}%`,
-                      top: '-14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      zIndex: 10
-                    }}
-                    title={`${log.timestamp} - ${log.skuName}`}
-                  >
-                    <div style={{
-                      padding: '2px 5px',
-                      borderRadius: '3px',
-                      fontSize: '0.62rem',
-                      fontFamily: 'var(--font-mono)',
-                      background: isDefect ? 'var(--danger-red)' : 'var(--tech-cyan)',
-                      color: '#000',
-                      fontWeight: 'bold',
-                      boxShadow: isDefect ? '0 0 8px var(--danger-red)' : '0 0 8px var(--tech-cyan)'
-                    }}>
-                      {log.timestamp}
-                    </div>
-                    <div style={{ width: '2px', height: '14px', background: isDefect ? 'var(--danger-red)' : 'var(--tech-cyan)' }}></div>
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ position: 'relative', height: '6px', background: '#eef0f2', borderRadius: '999px', margin: '18px 6px 0' }}>
+            {MOCK_VIDEO_LOGS.map((log, index) => {
+              const leftPos = 8 + index * 20;
+              const isDefect = log.anomalyDetected;
+              return (
+                <div
+                  key={log.id}
+                  onClick={() => onOpenVideoLog(log)}
+                  style={{
+                    position: 'absolute',
+                    left: `${leftPos}%`,
+                    top: '-4px',
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    background: isDefect ? 'var(--danger-red)' : 'var(--tech-cyan)',
+                    border: '2px solid #fff',
+                    boxShadow: `0 0 0 1px ${isDefect ? 'var(--danger-red)' : 'var(--tech-cyan)'}`,
+                    cursor: 'pointer',
+                  }}
+                  title={`${log.timestamp} - ${log.skuName}`}
+                ></div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* RIGHT COLUMN: VIDEO-BACKED AUDIT LOG TABLE */}
-      <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="tech-corner-tl"></div>
-        <div className="tech-corner-br"></div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>
-              VIDEO-BACKED AUDIT LOGS
+            <h3 style={{ fontSize: '0.92rem', fontWeight: '700', margin: 0 }}>
+              บันทึกวิดีโอตรวจสอบ
             </h3>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              100% Immutable Evidence Clips (5-10s)
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>
+              หลักฐานย้อนหลังทุกการหยิบ 5–10 วินาที
             </p>
           </div>
 
           {/* Filter Pills */}
-          <div style={{ display: 'flex', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
             {['ALL', 'NORMAL_PICK', 'DEFECT_FOUND', 'FALLEN_ITEM'].map((tag) => (
               <button
                 key={tag}
                 onClick={() => setFilterTag(tag)}
                 style={{
-                  background: filterTag === tag ? 'rgba(0, 176, 255, 0.2)' : 'transparent',
+                  background: filterTag === tag ? 'var(--tech-cyan-soft)' : 'transparent',
                   border: filterTag === tag ? '1px solid var(--tech-cyan)' : '1px solid var(--border-subtle)',
                   color: filterTag === tag ? 'var(--tech-cyan)' : 'var(--text-dim)',
-                  borderRadius: '4px',
-                  padding: '3px 6px',
+                  borderRadius: '999px',
+                  padding: '3px 9px',
                   fontSize: '0.68rem',
-                  fontFamily: 'var(--font-mono)',
-                  cursor: 'pointer'
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
                 }}
               >
-                {tag.replace('_', ' ')}
+                {TAG_LABELS[tag]}
               </button>
             ))}
           </div>
         </div>
 
         {/* Logs List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', overflowY: 'auto', flex: 1 }}>
           {filteredLogs.map((log) => (
             <div
               key={log.id}
               onClick={() => onOpenVideoLog(log)}
               style={{
-                background: 'rgba(12, 19, 28, 0.7)',
-                border: log.anomalyDetected ? '1px solid rgba(255, 23, 68, 0.4)' : '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '10px 12px',
+                background: log.anomalyDetected ? 'var(--danger-red-soft)' : '#fff',
+                border: log.anomalyDetected ? '1px solid #fecaca' : '1px solid var(--border-subtle)',
+                borderRadius: '10px',
+                padding: '11px',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.borderColor = 'var(--tech-cyan)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.borderColor = log.anomalyDetected ? 'rgba(255, 23, 68, 0.4)' : 'var(--border-subtle)';
-                e.currentTarget.style.transform = 'translateY(0)';
+                gap: '5px'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className={`hud-badge ${log.anomalyDetected ? 'hud-badge-red' : 'hud-badge-green'}`} style={{ fontSize: '0.62rem' }}>
-                    {log.action}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {log.timestamp}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--tech-cyan)' }}>
-                  ▶ PLAY CLIP ({log.durationSec}s)
+                <span className={`hud-badge ${log.anomalyDetected ? 'hud-badge-red' : 'hud-badge-cyan'}`} style={{ fontSize: '0.62rem' }}>
+                  {ACTION_LABELS[log.action] || log.action}
+                </span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                  {log.timestamp}
                 </span>
               </div>
 
-              <div style={{ fontWeight: '600', fontSize: '0.88rem', color: '#fff' }}>
+              <div style={{ fontWeight: '600', fontSize: '0.84rem', color: 'var(--text-main)' }}>
                 {log.skuName}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                <span>{log.shelfLocation}</span>
-                <span style={{ color: log.anomalyDetected ? 'var(--danger-red)' : 'var(--eco-green)' }}>
-                  Conf: {log.confidence}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{log.shelfLocation}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: log.anomalyDetected ? 'var(--danger-red)' : 'var(--eco-green-dark)' }}>
+                  ▶ เล่นคลิป ({log.durationSec}s)
                 </span>
               </div>
 
               {log.anomalyDetected && (
-                <div style={{ fontSize: '0.7rem', color: '#ff8a80', background: 'rgba(255,23,68,0.1)', padding: '3px 6px', borderRadius: '4px' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--danger-red)', marginTop: '2px' }}>
                   {log.defectReason}
                 </div>
               )}
@@ -452,17 +851,16 @@ export default function CCTVDashboard({ onOpenVideoLog, onTriggerPick }) {
 
         {/* Summary Footer */}
         <div style={{
-          padding: '8px 12px',
-          background: 'rgba(0, 176, 255, 0.05)',
-          borderRadius: '6px',
-          border: '1px solid rgba(0, 176, 255, 0.2)',
-          fontSize: '0.75rem',
+          padding: '10px 14px',
+          background: 'var(--tech-cyan-soft)',
+          borderRadius: '999px',
+          fontSize: '0.76rem',
           display: 'flex',
           justifyContent: 'space-between',
           color: 'var(--text-muted)'
         }}>
-          <span>Total Today: <strong>148 Clips</strong></span>
-          <span style={{ color: 'var(--eco-green)' }}>Auto-Synced to Cloud: 100%</span>
+          <span>วันนี้ทั้งหมด: <strong style={{ color: 'var(--text-main)' }}>148 คลิป</strong></span>
+          <span style={{ color: 'var(--tech-cyan)', fontWeight: 600 }}>ซิงก์ขึ้นคลาวด์แล้ว 100%</span>
         </div>
       </div>
     </div>

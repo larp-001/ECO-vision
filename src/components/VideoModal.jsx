@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const TAB_LABELS = { METRICS: 'ข้อมูลหลัก', AI_LAYER: 'การวิเคราะห์ AI', CONTEXT: 'บริบทก่อน-หลัง' };
+
 export default function VideoModal({ log, onClose }) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(3.5);
@@ -26,8 +28,8 @@ export default function VideoModal({ log, onClose }) {
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(3, 7, 12, 0.85)',
-      backdropFilter: 'blur(10px)',
+      background: 'rgba(26, 29, 36, 0.5)',
+      backdropFilter: 'blur(6px)',
       zIndex: 9999,
       display: 'flex',
       alignItems: 'center',
@@ -40,13 +42,8 @@ export default function VideoModal({ log, onClose }) {
         maxHeight: '90vh',
         display: 'flex',
         flexDirection: 'column',
-        border: '1px solid var(--border-cyan)',
-        boxShadow: '0 0 40px rgba(0, 176, 255, 0.25)',
         overflow: 'hidden'
       }}>
-        <div className="tech-corner-tl"></div>
-        <div className="tech-corner-br"></div>
-
         {/* Modal Header */}
         <div style={{
           display: 'flex',
@@ -54,42 +51,39 @@ export default function VideoModal({ log, onClose }) {
           alignItems: 'center',
           padding: '16px 20px',
           borderBottom: '1px solid var(--border-subtle)',
-          background: 'rgba(8, 14, 22, 0.9)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span className="status-pulse green"></span>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '700', letterSpacing: '0.04em' }}>
-                  VIDEO-BACKED AUDIT LOG: <span style={{ color: 'var(--tech-cyan)' }}>{log.id}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: '700', margin: 0 }}>
+                  วิดีโอตรวจสอบ: <span style={{ color: 'var(--tech-cyan)' }}>{log.id}</span>
                 </h3>
                 <span className={`hud-badge ${log.anomalyDetected ? 'hud-badge-amber' : 'hud-badge-green'}`}>
-                  {log.status}
+                  {log.anomalyDetected ? 'พบตำหนิ' : 'ปกติ'}
                 </span>
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                Target: {log.skuName} ({log.skuId}) • Time: {log.timestamp} • Operator: {log.operator}
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '2px 0 0' }}>
+                {log.skuName} ({log.skuId}) • เวลา {log.timestamp} • {log.operator}
               </p>
             </div>
           </div>
 
-          <button 
+          <button
             onClick={onClose}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
+              background: '#f1f2f4',
+              border: 'none',
               color: 'var(--text-muted)',
-              borderRadius: '6px',
-              padding: '6px 12px',
+              borderRadius: '8px',
+              padding: '7px 14px',
               cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              transition: 'all 0.2s'
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              fontFamily: 'inherit',
             }}
-            onMouseOver={(e) => { e.target.style.color = '#fff'; e.target.style.borderColor = 'var(--danger-red)'; }}
-            onMouseOut={(e) => { e.target.style.color = 'var(--text-muted)'; e.target.style.borderColor = 'var(--border-subtle)'; }}
           >
-            ✕ CLOSE
+            ✕ ปิด
           </button>
         </div>
 
@@ -106,33 +100,19 @@ export default function VideoModal({ log, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{
               position: 'relative',
-              borderRadius: '8px',
+              borderRadius: '11px',
               overflow: 'hidden',
               height: '320px',
-              background: log.previewBg || 'linear-gradient(135deg, #09121a, #03080e)',
-              border: '1px solid rgba(0, 176, 255, 0.3)',
+              background: '#f6f7f9',
+              border: '1px solid var(--border-subtle)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.8)'
             }}>
-              <div className="scanline-overlay"></div>
-
               {/* Synthetic Camera HUD Elements */}
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                zIndex: 20,
-                display: 'flex',
-                gap: '8px'
-              }}>
-                <span className="hud-badge hud-badge-red" style={{ animation: 'pulse-ring 2s infinite' }}>
-                  ● REC CLIP [5-10s BUFFER]
-                </span>
-                <span className="hud-badge hud-badge-cyan">
-                  CAM_01: 4K_60FPS_HDR
-                </span>
+              <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 20, display: 'flex', gap: '8px' }}>
+                <span className="hud-badge hud-badge-red">● กำลังบันทึก</span>
+                <span className="hud-badge hud-badge-cyan">4K · 60FPS · HDR</span>
               </div>
 
               <div style={{
@@ -140,12 +120,8 @@ export default function VideoModal({ log, onClose }) {
                 top: '12px',
                 right: '12px',
                 zIndex: 20,
-                color: 'var(--eco-green)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.8rem',
-                background: 'rgba(0,0,0,0.6)',
-                padding: '3px 8px',
-                borderRadius: '4px'
+                color: 'var(--text-dim)',
+                fontSize: '0.78rem',
               }}>
                 {log.timestamp} (+{currentTime.toFixed(1)}s)
               </div>
@@ -155,13 +131,12 @@ export default function VideoModal({ log, onClose }) {
                 position: 'relative',
                 width: '80%',
                 height: '75%',
-                border: '1px dashed rgba(0, 230, 118, 0.4)',
-                borderRadius: '8px',
+                border: '1px dashed #c9cdd3',
+                borderRadius: '10px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'rgba(0, 230, 118, 0.03)'
               }}>
                 {/* AI Detection Bounding Box */}
                 <div style={{
@@ -169,26 +144,25 @@ export default function VideoModal({ log, onClose }) {
                   width: '140px',
                   height: '140px',
                   border: log.anomalyDetected ? '2px solid var(--danger-red)' : '2px solid var(--eco-green)',
-                  borderRadius: '6px',
-                  boxShadow: log.anomalyDetected ? '0 0 15px rgba(255,23,68,0.5)' : '0 0 15px rgba(0,230,118,0.4)',
+                  borderRadius: '8px',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  padding: '4px'
+                  padding: '5px'
                 }}>
                   <span style={{
-                    fontSize: '0.65rem',
-                    fontFamily: 'var(--font-mono)',
-                    color: log.anomalyDetected ? 'var(--danger-red)' : 'var(--eco-green)',
-                    background: 'rgba(0,0,0,0.85)',
-                    padding: '1px 4px',
-                    borderRadius: '2px',
-                    alignSelf: 'flex-start'
+                    fontSize: '0.64rem',
+                    color: '#fff',
+                    background: log.anomalyDetected ? 'var(--danger-red)' : 'var(--eco-green)',
+                    padding: '2px 5px',
+                    borderRadius: '4px',
+                    alignSelf: 'flex-start',
+                    fontWeight: 600,
                   }}>
-                    {log.anomalyDetected ? 'DEFECT DETECTED [94%]' : 'AI_INSPECT: OK [99.8%]'}
+                    {log.anomalyDetected ? 'พบตำหนิ [94%]' : 'ผ่านมาตรฐาน [99.8%]'}
                   </span>
-                  
-                  <div style={{ textAlign: 'center', color: log.anomalyDetected ? '#ef4444' : '#34d399', display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+
+                  <div style={{ textAlign: 'center', color: log.anomalyDetected ? 'var(--danger-red)' : 'var(--eco-green-dark)', display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
                     {log.anomalyDetected ? (
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
@@ -204,14 +178,13 @@ export default function VideoModal({ log, onClose }) {
 
                   <span style={{
                     fontSize: '0.6rem',
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--text-muted)',
-                    background: 'rgba(0,0,0,0.7)',
+                    color: '#fff',
+                    background: 'rgba(26,29,36,0.7)',
                     padding: '1px 4px',
-                    borderRadius: '2px',
+                    borderRadius: '3px',
                     textAlign: 'center'
                   }}>
-                    POS: {log.shelfLocation.split(' ')[0]}
+                    ตำแหน่ง: {log.shelfLocation.split(' ')[0]}
                   </span>
                 </div>
 
@@ -225,20 +198,13 @@ export default function VideoModal({ log, onClose }) {
                   borderLeft: '4px solid var(--tech-cyan)',
                   borderRight: '4px solid var(--tech-cyan)',
                   borderRadius: '6px 6px 0 0',
-                  opacity: 0.8
+                  opacity: 0.6
                 }}></div>
               </div>
 
               {/* Watermark */}
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '12px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.7rem',
-                color: 'var(--text-dim)'
-              }}>
-                IMMUTABLE AUDIT HASH: #SHA256_9b4e72c81a...
+              <div style={{ position: 'absolute', bottom: '10px', left: '12px', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                รหัสยืนยันวิดีโอ: #SHA256_9b4e72c81a...
               </div>
             </div>
 
@@ -246,22 +212,22 @@ export default function VideoModal({ log, onClose }) {
             <div style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              background: 'rgba(10, 16, 24, 0.8)',
-              padding: '10px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-subtle)'
+              gap: '9px',
+              background: '#fafbfb',
+              border: '1px solid var(--border-subtle)',
+              padding: '11px 14px',
+              borderRadius: '10px',
             }}>
               {/* Timeline seek bar */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                   00:0{currentTime.toFixed(0)}
                 </span>
-                <div 
+                <div
                   style={{
                     flex: 1,
                     height: '6px',
-                    background: 'rgba(255,255,255,0.1)',
+                    background: '#eef0f2',
                     borderRadius: '3px',
                     position: 'relative',
                     cursor: 'pointer'
@@ -276,9 +242,8 @@ export default function VideoModal({ log, onClose }) {
                   <div style={{
                     width: `${progressPercent}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, var(--tech-cyan), var(--eco-green))',
+                    background: 'var(--eco-green)',
                     borderRadius: '3px',
-                    boxShadow: '0 0 8px var(--eco-green)'
                   }}></div>
                   {/* Event Marker Pin */}
                   <div style={{
@@ -289,42 +254,41 @@ export default function VideoModal({ log, onClose }) {
                     height: '14px',
                     background: 'var(--warning-amber)',
                     borderRadius: '2px',
-                    boxShadow: '0 0 6px var(--warning-amber)'
-                  }} title="AI Pick Tag"></div>
+                  }} title="จุดที่ AI แท็กเหตุการณ์"></div>
                 </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                   00:0{log.durationSec || 8.0}
                 </span>
               </div>
 
               {/* Controls bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
+                  <button
                     className="btn-cyber"
-                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                    style={{ padding: '5px 12px', fontSize: '0.8rem' }}
                     onClick={() => setIsPlaying(!isPlaying)}
                   >
-                    {isPlaying ? 'PAUSE' : 'PLAY'}
+                    {isPlaying ? 'หยุดชั่วคราว' : 'เล่น'}
                   </button>
-                  <button 
+                  <button
                     className="btn-cyber"
-                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                    style={{ padding: '5px 12px', fontSize: '0.8rem' }}
                     onClick={() => setCurrentTime(0)}
                   >
-                    ↺ REPLAY
+                    ↺ เล่นซ้ำ
                   </button>
-                  <button 
+                  <button
                     className="btn-cyber"
-                    style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                    style={{ padding: '5px 12px', fontSize: '0.8rem' }}
                     onClick={() => setCurrentTime(Math.max(0, currentTime - 1.5))}
                   >
-                    -1.5s CONTEXT
+                    ย้อน 1.5 วิ
                   </button>
                 </div>
 
-                <span style={{ fontSize: '0.75rem', color: 'var(--eco-green)', fontFamily: 'var(--font-mono)' }}>
-                  ✓ DOUBLE-VERIFIED BY mmWAVE RADAR
+                <span style={{ fontSize: '0.75rem', color: 'var(--eco-green-dark)', fontWeight: 600 }}>
+                  ✓ ยืนยันซ้ำด้วยเรดาร์ mmWave
                 </span>
               </div>
             </div>
@@ -343,105 +307,97 @@ export default function VideoModal({ log, onClose }) {
                     border: 'none',
                     borderBottom: activeTab === tab ? '2px solid var(--tech-cyan)' : '2px solid transparent',
                     color: activeTab === tab ? 'var(--tech-cyan)' : 'var(--text-muted)',
-                    padding: '6px 10px',
-                    fontSize: '0.85rem',
+                    padding: '6px 4px',
+                    fontSize: '0.84rem',
                     fontWeight: '600',
                     cursor: 'pointer',
-                    letterSpacing: '0.05em'
+                    fontFamily: 'inherit',
                   }}
                 >
-                  {tab}
+                  {TAB_LABELS[tab]}
                 </button>
               ))}
             </div>
 
             {activeTab === 'METRICS' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TRANSACTION ID</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', color: '#fff', fontWeight: 'bold' }}>{log.id}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px 12px', borderRadius: '9px' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>รหัสรายการ</div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 'bold', marginTop: '2px' }}>{log.id}</div>
                 </div>
 
-                <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SHELF / BIN COORDINATES</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--tech-cyan)' }}>{log.shelfLocation}</div>
+                <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px 12px', borderRadius: '9px' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ตำแหน่งชั้นวาง</div>
+                  <div style={{ fontSize: '0.86rem', color: 'var(--tech-cyan)', marginTop: '2px' }}>{log.shelfLocation}</div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>AI CONFIDENCE</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--eco-green)', fontWeight: 'bold' }}>{log.confidence}</div>
+                  <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px 12px', borderRadius: '9px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ความแม่นยำ AI</div>
+                    <div style={{ fontSize: '0.95rem', color: 'var(--eco-green-dark)', fontWeight: 'bold', marginTop: '2px' }}>{log.confidence}</div>
                   </div>
-                  <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>CLIP DURATION</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: '#fff' }}>{log.durationSec}s Loop</div>
+                  <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px 12px', borderRadius: '9px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>ความยาวคลิป</div>
+                    <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', marginTop: '2px' }}>{log.durationSec} วินาที</div>
                   </div>
                 </div>
 
                 {log.anomalyDetected && (
-                  <div style={{
-                    background: 'rgba(255, 23, 68, 0.12)',
-                    border: '1px solid var(--danger-red)',
-                    padding: '10px',
-                    borderRadius: '6px'
-                  }}>
-                    <span style={{ color: 'var(--danger-red)', fontWeight: 'bold', fontSize: '0.72rem' }}>
-                      ANOMALY / DEFECT NOTE:
+                  <div style={{ background: 'var(--danger-red-soft)', padding: '10px 12px', borderRadius: '9px' }}>
+                    <span style={{ color: 'var(--danger-red)', fontWeight: 'bold', fontSize: '0.74rem' }}>
+                      หมายเหตุความผิดปกติ:
                     </span>
-                    <div style={{ fontSize: '0.8rem', color: '#f8d7da', marginTop: '4px' }}>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--danger-red)', marginTop: '4px' }}>
                       {log.defectReason}
                     </div>
                   </div>
                 )}
 
                 <div style={{
-                  background: 'rgba(0, 230, 118, 0.08)',
-                  border: '1px solid rgba(0, 230, 118, 0.3)',
-                  padding: '10px',
-                  borderRadius: '6px',
+                  background: 'var(--eco-green-soft)',
+                  padding: '11px 12px',
+                  borderRadius: '9px',
                   fontSize: '0.8rem',
                   color: 'var(--text-main)',
-                  lineHeight: '1.4'
+                  lineHeight: '1.5'
                 }}>
-                  <strong style={{ color: 'var(--eco-green)' }}>✓ Zero Ghost-Log Security:</strong> Video snippet was generated on-robot Edge SSD and linked to WMS database with cryptographic timestamp.
+                  <strong style={{ color: 'var(--eco-green-dark)' }}>✓ หลักฐานตรวจสอบย้อนหลังได้ 100%:</strong> วิดีโอนี้บันทึกในตัวหุ่นยนต์และเชื่อมกับฐานข้อมูลคลังพร้อมประทับเวลา ไม่สามารถแก้ไขย้อนหลังได้
                 </div>
               </div>
             )}
 
             {activeTab === 'AI_LAYER' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-                <div style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                  <strong>Vision Model:</strong> YOLOv9-Custom-LabChemicals
+                <div style={{ padding: '10px 12px', background: '#fafbfb', border: '1px solid var(--border-subtle)', borderRadius: '9px' }}>
+                  <strong>โมเดล Vision AI:</strong> YOLOv9-Custom-Retail
                 </div>
-                <div style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                  <strong>Barcode / QR:</strong> Decoded [SKU-HEX-9821]
+                <div style={{ padding: '10px 12px', background: '#fafbfb', border: '1px solid var(--border-subtle)', borderRadius: '9px' }}>
+                  <strong>บาร์โค้ด / QR:</strong> อ่านสำเร็จ [SKU-HEX-9821]
                 </div>
-                <div style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                  <strong>Packaging Integrity:</strong> 99.4% Surface Smoothness
+                <div style={{ padding: '10px 12px', background: '#fafbfb', border: '1px solid var(--border-subtle)', borderRadius: '9px' }}>
+                  <strong>สภาพบรรจุภัณฑ์:</strong> เรียบเนียน 99.4%
                 </div>
-                <div style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                  <strong>Liquid Meniscus Estimator:</strong> 98.2% Volumetric
+                <div style={{ padding: '10px 12px', background: '#fafbfb', border: '1px solid var(--border-subtle)', borderRadius: '9px' }}>
+                  <strong>ประมาณปริมาณสินค้า:</strong> แม่นยำ 98.2%
                 </div>
               </div>
             )}
 
             {activeTab === 'CONTEXT' && (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                <p><strong>Pre-Pick Context (-30s):</strong> AMR approached shelf at 0.6 m/s. mmWave radar verified clear corridor.</p>
-                <p style={{ marginTop: '8px' }}><strong>Post-Pick Context (+30s):</strong> Item placed in secure bay holder. Barcode verified before transit dispatch.</p>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                <p><strong style={{ color: 'var(--text-main)' }}>ก่อนหยิบ (-30 วินาที):</strong> หุ่นยนต์เข้าใกล้ชั้นวางด้วยความเร็ว 0.6 m/s เรดาร์ mmWave ยืนยันทางเดินโล่งแล้ว</p>
+                <p style={{ marginTop: '8px' }}><strong style={{ color: 'var(--text-main)' }}>หลังหยิบ (+30 วินาที):</strong> วางสินค้าในช่องเก็บเรียบร้อย ตรวจสอบบาร์โค้ดก่อนเคลื่อนที่ต่อ</p>
               </div>
             )}
 
             {/* Bottom Actions */}
-            <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
-              <button 
-                className="btn-cyber btn-cyber-primary" 
-                style={{ flex: 1, justifyContent: 'center', fontSize: '0.85rem' }}
-                onClick={() => alert(`Clip ${log.id} exported as legal audit artifact (.mp4 + JSON metadata)`)}
-              >
-                EXPORT AUDIT SNIPPET
-              </button>
-            </div>
+            <button
+              className="btn-cyber btn-cyber-primary"
+              style={{ justifyContent: 'center', fontSize: '0.85rem', padding: '10px', marginTop: 'auto' }}
+              onClick={() => alert(`ส่งออกคลิป ${log.id} เป็นหลักฐาน (.mp4 + ข้อมูล JSON) แล้ว`)}
+            >
+              ส่งออกคลิปหลักฐาน
+            </button>
           </div>
         </div>
       </div>

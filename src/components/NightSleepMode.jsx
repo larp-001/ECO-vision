@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
-import { MOCK_EOD_REPORT } from '../data/mockData';
+import { MOCK_EOD_REPORT } from '../data/mockData.js';
 
 export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }) {
-  const [eodReport, setEodReport] = useState(MOCK_EOD_REPORT);
+  const [eodReport] = useState(MOCK_EOD_REPORT);
   const [isIntruderSimulated, setIsIntruderSimulated] = useState(false);
-  const [securityStatus, setSecurityStatus] = useState('GUARDING_PERIMETER');
+  const [securityStatus, setSecurityStatus] = useState('เฝ้าระวังรอบพื้นที่');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, level = 'info', duration = 4500) => {
+    setToast({ message, level });
+    setTimeout(() => setToast(null), duration);
+  };
 
   const handleSimulateIntruder = () => {
     setIsIntruderSimulated(true);
-    setSecurityStatus('INTRUDER_DETECTED_ALARM');
+    setSecurityStatus('พบผู้บุกรุก');
     setTimeout(() => {
-      alert('NIGHT SECURITY ALARM!\nmmWave Radar detected unauthorized human movement in Zone B during Deep Sleep. Camera woke up instantly and dispatched push notification.');
+      showToast('แจ้งเตือนความปลอดภัยตอนกลางคืน! เรดาร์ mmWave ตรวจพบคนเคลื่อนไหวในโซน B ระหว่างโหมดพักหลับ กล้องเปิดทันทีและส่งแจ้งเตือนไปยังเจ้าของแล้ว', 'danger');
     }, 400);
   };
 
   const handleResetAlarm = () => {
     setIsIntruderSimulated(false);
-    setSecurityStatus('GUARDING_PERIMETER');
+    setSecurityStatus('เฝ้าระวังรอบพื้นที่');
   };
 
   const isSleep = activeMode === 'DEEP_SLEEP';
@@ -37,61 +43,55 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
-          background: isSleep ? 'rgba(15, 8, 24, 0.92)' : 'rgba(10, 16, 24, 0.85)',
-          border: isSleep ? '1px solid #9c27b0' : '1px solid var(--border-subtle)'
         }}>
-          <div className="tech-corner-tl"></div>
-          <div className="tech-corner-br"></div>
-
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span className="status-pulse green"></span>
               <div>
-                <h2 style={{ fontSize: '1.15rem', fontWeight: '700', letterSpacing: '0.04em' }}>
-                  NIGHT SLEEP & AUTONOMOUS AUDIT MODE
+                <h2 style={{ fontSize: '1.02rem', fontWeight: '700', margin: 0 }}>
+                  โหมดพักหลับ & เฝ้าระวังกลางคืน
                 </h2>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  Dynamic Power Scaling • Low-Power Perimeter Security Guard
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+                  ปรับใช้พลังงานอัตโนมัติ • เฝ้าระวังพื้นที่แบบประหยัดไฟ
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                onClick={() => setPowerMode(isSleep ? 'ACTIVE' : 'DEEP_SLEEP')}
-                className={`btn-cyber ${isSleep ? 'btn-cyber-primary' : ''}`}
-                style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-              >
-                {isSleep ? 'WAKE TO ACTIVE MODE' : 'ENTER NIGHT SLEEP MODE'}
-              </button>
-            </div>
+            <button
+              onClick={() => setPowerMode(isSleep ? 'ACTIVE' : 'DEEP_SLEEP')}
+              className={`btn-cyber ${isSleep ? 'btn-cyber-primary' : ''}`}
+              style={{ fontSize: '0.78rem', padding: '7px 14px' }}
+            >
+              {isSleep ? 'ปลุกให้ทำงานปกติ' : 'เข้าสู่โหมดพักหลับ'}
+            </button>
           </div>
 
           {/* Power Saving Highlight Banner */}
           <div style={{
-            background: isSleep ? 'rgba(156, 39, 176, 0.15)' : 'rgba(0, 230, 118, 0.1)',
-            border: isSleep ? '1px solid #9c27b0' : '1px solid var(--eco-green)',
-            borderRadius: '8px',
-            padding: '12px 16px',
+            background: isSleep ? '#f3e8fd' : 'var(--eco-green-soft)',
+            borderRadius: '10px',
+            padding: '13px 16px',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
           }}>
             <div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isSleep ? '#e1bee7' : 'var(--eco-green)' }}>
-                {isSleep ? 'DEEP SLEEP ACTIVE (85-90% ENERGY SAVED)' : 'STANDARD OPERATION MODE (ACTIVE)'}
+              <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isSleep ? '#7c3aed' : 'var(--eco-green-dark)' }}>
+                {isSleep ? 'กำลังพักหลับ (ประหยัดพลังงาน 85-90%)' : 'ทำงานปกติ'}
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                 {isSleep
-                  ? 'Motors, 4K cameras & LEDs powered down. Only low-power mmWave radar active.'
-                  : 'Full multi-spectral vision AI and 360° LiDAR navigation online.'}
+                  ? 'มอเตอร์ กล้อง 4K และไฟ LED ปิดหมด เหลือแค่เรดาร์ mmWave ทำงาน'
+                  : 'ระบบ Vision AI และเรดาร์ 360° เปิดทำงานเต็มรูปแบบ'}
               </div>
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>POWER DRAW</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', color: isSleep ? '#00e676' : 'var(--tech-cyan)', fontWeight: 'bold' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>พลังงานที่ใช้</div>
+              <div style={{ fontSize: '1.3rem', color: isSleep ? '#7c3aed' : 'var(--tech-cyan)', fontWeight: 'bold' }}>
                 {isSleep ? '12.4 W' : '142.0 W'}
               </div>
             </div>
@@ -99,39 +99,39 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
 
           {/* 4-State Dynamic Power Scaling Architecture */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-muted)' }}>
-              DYNAMIC POWER STATE MACHINE
+            <div style={{ fontSize: '0.84rem', fontWeight: '700' }}>
+              โหมดพลังงาน 4 ระดับ
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {[
-                { name: '1. ACTIVE', draw: '140-180W', desc: 'Full Camera + Arm + LiDAR', current: activeMode === 'ACTIVE', color: 'var(--eco-green)' },
-                { name: '2. PATROL', draw: '45-65W', desc: 'Low-FPS Vision + Radar', current: activeMode === 'PATROL', color: 'var(--tech-cyan)' },
-                { name: '3. STANDBY', draw: '20-30W', desc: 'Parked at Opportunity Pad', current: activeMode === 'STANDBY', color: 'var(--warning-amber)' },
-                { name: '4. DEEP SLEEP', draw: '8-15W', desc: 'Radar Only + EOD AI', current: isSleep, color: '#9c27b0' },
+                { name: '1. ทำงาน', key: 'ACTIVE', draw: '140-180W', desc: 'กล้อง + แขนกล + เรดาร์เต็มรูปแบบ', current: activeMode === 'ACTIVE', color: 'var(--eco-green-dark)' },
+                { name: '2. ตรวจตรา', key: 'PATROL', draw: '45-65W', desc: 'ภาพความละเอียดต่ำ + เรดาร์', current: activeMode === 'PATROL', color: 'var(--tech-cyan)' },
+                { name: '3. สแตนด์บาย', key: 'STANDBY', draw: '20-30W', desc: 'จอดที่จุดพัก', current: activeMode === 'STANDBY', color: 'var(--warning-amber)' },
+                { name: '4. พักหลับ', key: 'DEEP_SLEEP', draw: '8-15W', desc: 'เฉพาะเรดาร์ + สรุปประจำวัน', current: isSleep, color: '#7c3aed' },
               ].map((state) => (
                 <div
                   key={state.name}
-                  onClick={() => setPowerMode(state.name.split(' ')[1])}
+                  onClick={() => setPowerMode(state.key)}
                   style={{
-                    background: state.current ? 'rgba(255,255,255,0.08)' : 'rgba(12, 19, 28, 0.6)',
+                    background: state.current ? '#fafbfb' : '#fff',
                     border: state.current ? `2px solid ${state.color}` : '1px solid var(--border-subtle)',
-                    borderRadius: '6px',
+                    borderRadius: '9px',
                     padding: '10px 8px',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    height: '90px'
+                    height: '92px'
                   }}
                 >
                   <div style={{ fontWeight: 'bold', fontSize: '0.75rem', color: state.color }}>
                     {state.name}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: '#fff' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
                     {state.draw}
                   </div>
-                  <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', lineHeight: '1.2' }}>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-dim)', lineHeight: '1.25' }}>
                     {state.desc}
                   </div>
                 </div>
@@ -141,19 +141,19 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
 
           {/* Night Security Radar Live Guarding HUD */}
           <div style={{
-            background: 'rgba(8, 14, 22, 0.9)',
-            border: isIntruderSimulated ? '2px solid var(--danger-red)' : '1px solid var(--border-cyan)',
-            borderRadius: '8px',
+            background: isIntruderSimulated ? 'var(--danger-red-soft)' : '#fafbfb',
+            border: isIntruderSimulated ? '1px solid #fecaca' : '1px solid var(--border-subtle)',
+            borderRadius: '10px',
             padding: '14px',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className={`status-pulse ${isIntruderSimulated ? 'red' : 'green'}`}></span>
-                <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: isIntruderSimulated ? 'var(--danger-red)' : '#fff' }}>
-                  {isIntruderSimulated ? 'INTRUDER / NIGHT MOVEMENT DETECTED!' : 'LOW-POWER NIGHT RADAR GUARD (PERIMETER SECURE)'}
+                <span style={{ fontWeight: 'bold', fontSize: '0.88rem', color: isIntruderSimulated ? 'var(--danger-red)' : 'var(--text-main)' }}>
+                  {isIntruderSimulated ? 'พบผู้บุกรุก / มีการเคลื่อนไหวตอนกลางคืน!' : 'เรดาร์เฝ้าระวังกลางคืน (พื้นที่ปลอดภัย)'}
                 </span>
               </div>
 
@@ -164,26 +164,26 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
 
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {isIntruderSimulated
-                ? 'mmWave Radar detected human body reflection at Zone B corridor. Triggering 1-second Flash LED + 10s video recording snapshot.'
-                : 'Robot is stationary at charging node. Scanning 360° for unauthorized personnel, fallen chemical containers, or temperature anomalies.'}
+                ? 'เรดาร์ mmWave ตรวจพบสัญญาณสะท้อนร่างกายคนที่โซน B กำลังเปิดไฟแฟลช 1 วินาที และบันทึกวิดีโอ 10 วินาที'
+                : 'หุ่นยนต์จอดอยู่ที่จุดชาร์จ กำลังสแกน 360° หาบุคคลแปลกปลอม สินค้าตกพื้น หรืออุณหภูมิผิดปกติ'}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div>
               {!isIntruderSimulated ? (
                 <button
                   onClick={handleSimulateIntruder}
                   className="btn-cyber btn-cyber-danger"
-                  style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                  style={{ fontSize: '0.78rem', padding: '7px 14px' }}
                 >
-                  SIMULATE NIGHT INTRUDER DETECTION
+                  จำลองการตรวจพบผู้บุกรุก
                 </button>
               ) : (
                 <button
                   onClick={handleResetAlarm}
                   className="btn-cyber btn-cyber-primary"
-                  style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                  style={{ fontSize: '0.78rem', padding: '7px 14px' }}
                 >
-                  ACKNOWLEDGE & RESET SECURITY GUARD
+                  รับทราบ & รีเซ็ตการเฝ้าระวัง
                 </button>
               )}
             </div>
@@ -193,16 +193,13 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
 
       {/* RIGHT COLUMN: END-OF-DAY (EOD) AUTOMATED REPORT */}
       <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="tech-corner-tl"></div>
-        <div className="tech-corner-br"></div>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700' }}>
-              END-OF-DAY (EOD) AUDIT REPORT
+            <h3 style={{ fontSize: '0.96rem', fontWeight: '700', margin: 0 }}>
+              สรุปผลประจำวัน
             </h3>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              Auto-Compiled by AI during Night Sleep Mode
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
+              สรุปอัตโนมัติโดย AI ระหว่างโหมดพักหลับ
             </span>
           </div>
 
@@ -213,74 +210,112 @@ export default function NightSleepMode({ robotStatus, activeMode, setPowerMode }
 
         {/* Metrics Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>PICKS COMPLETED</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', color: '#fff', fontWeight: 'bold' }}>
-              {eodReport.picksCompleted}
+          <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '9px' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>หยิบสินค้าสำเร็จ</div>
+            <div style={{ fontSize: '1.15rem', color: 'var(--text-main)', fontWeight: 'bold', marginTop: '2px' }}>
+              {eodReport.picksCompleted} ครั้ง
             </div>
           </div>
 
-          <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>ACCURACY RATE</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', color: 'var(--eco-green)', fontWeight: 'bold' }}>
+          <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '9px' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>ความแม่นยำ</div>
+            <div style={{ fontSize: '1.15rem', color: 'var(--eco-green-dark)', fontWeight: 'bold', marginTop: '2px' }}>
               {eodReport.inspectionAccuracy}
             </div>
           </div>
 
-          <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>NLOS PREVENTED ACCIDENTS</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', color: 'var(--tech-cyan)', fontWeight: 'bold' }}>
-              {eodReport.nearMissesPreventedNLOS} Blindspots
+          <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '9px' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>ป้องกันอุบัติเหตุจุดอับ</div>
+            <div style={{ fontSize: '1.15rem', color: 'var(--tech-cyan)', fontWeight: 'bold', marginTop: '2px' }}>
+              {eodReport.nearMissesPreventedNLOS} ครั้ง
             </div>
           </div>
 
-          <div style={{ background: 'rgba(15, 23, 33, 0.6)', padding: '10px', borderRadius: '6px' }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>DEFECTS QUARANTINED</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', color: 'var(--warning-amber)', fontWeight: 'bold' }}>
-              {eodReport.packagingDefectsQuarantined} SKU
+          <div style={{ background: '#fafbfb', border: '1px solid var(--border-subtle)', padding: '10px', borderRadius: '9px' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>สินค้ามีตำหนิถูกกักไว้</div>
+            <div style={{ fontSize: '1.15rem', color: 'var(--warning-amber)', fontWeight: 'bold', marginTop: '2px' }}>
+              {eodReport.packagingDefectsQuarantined} รายการ
             </div>
           </div>
         </div>
 
         {/* ESG Green Energy Harvest Summary */}
         <div style={{
-          padding: '12px',
-          background: 'rgba(0, 230, 118, 0.08)',
-          border: '1px solid rgba(0, 230, 118, 0.3)',
-          borderRadius: '8px',
+          padding: '13px',
+          background: 'var(--eco-green-soft)',
+          borderRadius: '10px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
+          gap: '7px',
           fontSize: '0.8rem'
         }}>
-          <div style={{ fontWeight: 'bold', color: 'var(--eco-green)' }}>
-            ESG & Green Energy Harvest Telemetry:
+          <div style={{ fontWeight: 'bold', color: 'var(--eco-green-dark)' }}>
+            พลังงานสะอาดที่เก็บเกี่ยวได้
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Solar Ambient Harvest:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: '#fff' }}>{eodReport.energyHarvestedSolar}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+            <span>พลังงานแสงอาทิตย์:</span>
+            <strong style={{ color: 'var(--text-main)' }}>{eodReport.energyHarvestedSolar}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Regenerative Braking Recovery:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: '#fff' }}>{eodReport.energyRecoveredBraking}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+            <span>พลังงานคืนจากการเบรก:</span>
+            <strong style={{ color: 'var(--text-main)' }}>{eodReport.energyRecoveredBraking}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Total Facility Energy Saved:</span>
-            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--eco-green)' }}>{eodReport.totalEnergySavedPercent}</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+            <span>ประหยัดพลังงานรวมทั้งโรงงาน:</span>
+            <strong style={{ color: 'var(--eco-green-dark)' }}>{eodReport.totalEnergySavedPercent}</strong>
           </div>
         </div>
 
         {/* Action Button */}
-        <div style={{ marginTop: 'auto' }}>
-          <button
-            onClick={() => alert('EOD Report & Video Audit Manifest exported as PDF / Excel spreadsheet.')}
-            className="btn-cyber btn-cyber-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
-          >
-            EXPORT MANAGER EOD AUDIT REPORT
-          </button>
-        </div>
+        <button
+          onClick={() => showToast('ส่งออกรายงานสรุปประจำวัน (PDF / Excel) แล้ว', 'success', 3000)}
+          className="btn-cyber btn-cyber-primary"
+          style={{ width: '100%', justifyContent: 'center', padding: '11px', marginTop: 'auto' }}
+        >
+          ส่งออกรายงานสรุปประจำวัน
+        </button>
       </div>
+
+      {/* Floating in-app toast notification (replaces native browser alert()) */}
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 3000,
+            maxWidth: '520px',
+            width: 'calc(100% - 40px)',
+            background: '#ffffff',
+            border: `1px solid ${toast.level === 'danger' ? '#fecaca' : toast.level === 'success' ? '#bbf7d0' : '#e6e8eb'}`,
+            borderLeft: `4px solid ${toast.level === 'danger' ? 'var(--danger-red)' : toast.level === 'success' ? 'var(--eco-green)' : 'var(--tech-cyan)'}`,
+            borderRadius: '10px',
+            boxShadow: '0 12px 32px rgba(16,24,40,.14)',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            cursor: 'pointer',
+            animation: 'heroEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          }}
+        >
+          <span
+            className={`status-pulse ${toast.level === 'danger' ? 'red' : toast.level === 'success' ? 'green' : 'cyan'}`}
+            style={{ marginTop: '4px', flexShrink: 0 }}
+          ></span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '2px' }}>
+              {toast.level === 'danger' ? 'แจ้งเตือนความปลอดภัย' : 'แจ้งเตือนระบบ'}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              {toast.message}
+            </div>
+          </div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', flexShrink: 0 }}>ปิด ×</span>
+        </div>
+      )}
     </div>
   );
 }
